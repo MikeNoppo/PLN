@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StatusLaporan {
+  BARU
+  DIPROSES
+  SELESAI
+}
+
+enum TipeMeter {
+  PASCA_BAYAR
+  PRA_BAYAR
+}
+
+enum UserRole {
+  ADMIN
+  PETUGAS_YANTEK
+  PETUGAS_PENYAMBUNGAN
+}
+
+model User {
+  id         String    @id @default(cuid())
+  username   String    
+  password   String
+  name       String    @unique
+  createdAt  DateTime  @default(now())
+  role       UserRole
+  laporan_yante LaporanYantek[]
+  laporan_penyambungan LaporanPenyambungan[]
+}
+
+model LaporanYantek {
+  id                      String       @id @default(cuid())
+  ID_Pelanggan            String       @unique
+  nomor_meter             String
+  tipe_meter              TipeMeter
+  no_telepon_pelanggan    String
+  nama_petugas            String
+  foto_rumah              String
+  foto_meter_rusak        String
+  foto_ba_gangguan        String
+  foto_keadaan_lapangan   String
+  titik_koordinat         String
+  status_laporan          StatusLaporan @default(BARU)
+  createdAt               DateTime     @default(now())
+  
+  petugas                 User          @relation(fields: [nama_petugas], references: [name])
+  laporan_penyambungan    LaporanPenyambungan?
+}
+
+model LaporanPenyambungan {
+  id                      String       @id @default(cuid())
+  laporan_yante_id        String       @unique
+  foto_pemasangan_meter   String
+  foto_rumah_pelanggan    String
+  foto_ba_pemasangan      String
+  nama_petugas            String
+  status_laporan          StatusLaporan @default(DIPROSES)
+  createdAt               DateTime     @default(now())
+  
+  petugas                 User          @relation(fields: [nama_petugas], references: [name])
+  laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id])
+}
