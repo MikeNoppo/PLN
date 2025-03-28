@@ -34,6 +34,7 @@ model User {
   name       String    @unique
   createdAt  DateTime  @default(now())
   role       UserRole
+
   laporan_yante LaporanYantek[]
   laporan_penyambungan LaporanPenyambungan[]
 }
@@ -47,13 +48,14 @@ model LaporanYantek {
   nama_petugas            String
   foto_rumah              String
   foto_meter_rusak        String
+  stand_meter_cabut       String?
+  sisa_pulsa              String?
   foto_ba_gangguan        String
-  foto_keadaan_lapangan   String
   titik_koordinat         String
   status_laporan          StatusLaporan @default(BARU)
   createdAt               DateTime     @default(now())
   
-  petugas                 User          @relation(fields: [nama_petugas], references: [name])
+  petugas                 User          @relation(fields: [nama_petugas], references: [name], onDelete: NoAction)
   laporan_penyambungan    LaporanPenyambungan?
 }
 
@@ -67,6 +69,6 @@ model LaporanPenyambungan {
   status_laporan          StatusLaporan @default(DIPROSES)
   createdAt               DateTime     @default(now())
   
-  petugas                 User          @relation(fields: [nama_petugas], references: [name])
+  petugas                 User          @relation(fields: [nama_petugas], references: [name],onDelete: NoAction)
   laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id])
 }
