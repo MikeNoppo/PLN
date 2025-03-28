@@ -36,7 +36,7 @@
 - [x] Buat kontrol akses berbasis peran Admin
 - [x] Kembangkan endpoint login untuk berbagai peran User
 - [x] Terapkan enkripsi kata sandi
-- [ ] Buat endpoint manajemen User untuk admin
+- [x] Buat endpoint manajemen User untuk admin
 
 ## Endpoint Pelaporan
 
@@ -95,6 +95,9 @@
 ## Endpoint Hak Akses dan Pengeditan
 
 ### Hak Akses Admin
+- [x] Buat endpoint users management
+    - menghapus akun user petugas 
+    - membuat akun user petugas
 - [ ] Buat endpoint untuk:
   - Mengedit laporan
   - Mengelola akun User
