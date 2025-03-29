@@ -41,18 +41,19 @@
 ## Endpoint Pelaporan
 
 ### Pelaporan Petugas Yantek
-- [ ] Buat endpoint untuk pelaporan kerusakan meter
-- [ ] Terapkan unggahan file untuk:
+- [x] Buat endpoint untuk pelaporan kerusakan meter
+- [x] Terapkan unggahan file untuk:
   - Foto Rumah Pelanggan
   - Foto Meter Rusak
   - Foto Berita Acara Gangguan
-- [ ] Validasi dan simpan detail laporan:
+- [x] Validasi dan simpan detail laporan:
   - Nomor Meter
   - IDPEL
   - Nomor Telepon Pelanggan
   - Nama Petugas
   - Stand Meter
   - Sisa Pulsa
+- [!] Isu: Penanganan laporan duplikat untuk ID Pelanggan yang sama (lihat duplicate_report_issue_plan.md)
 
 ### Pelaporan Petugas Penyambungan
 - [ ] Buat endpoint untuk pelaporan pemasangan meter
@@ -100,7 +101,6 @@
     - membuat akun user petugas
 - [ ] Buat endpoint untuk:
   - Mengedit laporan
-  - Mengelola akun User
   - Memperbarui informasi pelanggan
   - Memodifikasi foto
 
