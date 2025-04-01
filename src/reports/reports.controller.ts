@@ -15,7 +15,8 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
-import { CreateReportDto } from './dto/create-report.dto';
+import { CreateReportDto } from './dto/create-report.dto'; // Assuming this is for Yantek
+import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
@@ -26,7 +27,8 @@ import { UserRole } from '@prisma/client';
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
-  @Post()
+  // --- Endpoint for Yantek Report ---
+  @Post('yantek') // Changed route
   @Roles(UserRole.PETUGAS_YANTEK)
   @UseInterceptors(
     FileFieldsInterceptor([
@@ -64,9 +66,58 @@ export class ReportsController {
       }
     }
 
-    return this.reportsService.create(createReportDto, files);
+    // Assuming the service method will be renamed to createYantek
+    return this.reportsService.createYantek(createReportDto, files);
   }
 
+  // --- Endpoint for Penyambungan Report ---
+  @Post('penyambungan')
+  @Roles(UserRole.PETUGAS_PENYAMBUNGAN)
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'foto_pemasangan_meter', maxCount: 1 },
+      { name: 'foto_rumah_pelanggan', maxCount: 1 },
+      { name: 'foto_ba_pemasangan', maxCount: 1 },
+    ]),
+  )
+  async createPenyambungan(
+    @Body() createPenyambunganDto: CreatePenyambunganDto,
+    @UploadedFiles()
+    files: {
+      foto_pemasangan_meter?: Express.Multer.File[];
+      foto_rumah_pelanggan?: Express.Multer.File[];
+      foto_ba_pemasangan?: Express.Multer.File[];
+    },
+  ) {
+    if (
+      !files.foto_pemasangan_meter?.[0] ||
+      !files.foto_rumah_pelanggan?.[0] ||
+      !files.foto_ba_pemasangan?.[0]
+    ) {
+      throw new BadRequestException('Semua foto wajib diunggah');
+    }
+
+    // Validate file types (similar to yantek)
+    const validImageType = /^image\/(jpeg|jpg|png)$/;
+    const allFiles = [
+      { name: 'foto pemasangan meter', file: files.foto_pemasangan_meter[0] },
+      { name: 'foto rumah pelanggan', file: files.foto_rumah_pelanggan[0] },
+      { name: 'foto BA pemasangan', file: files.foto_ba_pemasangan[0] },
+    ];
+
+    for (const { name, file } of allFiles) {
+      if (!validImageType.test(file.mimetype)) {
+        throw new BadRequestException(
+          `File ${name} harus berupa gambar (jpg, jpeg, atau png). Tipe yang diterima: ${validImageType}, tipe yang dikirim: ${file.mimetype}`,
+        );
+      }
+    }
+
+    // Assuming the service method will be named createPenyambungan
+    return this.reportsService.createPenyambungan(createPenyambunganDto, files);
+  }
+
+  // --- Existing GET/DELETE Endpoints ---
   @Get()
   @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
   findAll() {

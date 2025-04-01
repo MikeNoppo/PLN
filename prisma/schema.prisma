@@ -74,7 +74,7 @@ model LaporanPenyambungan {
   foto_rumah_pelanggan    String
   foto_ba_pemasangan      String
   nama_petugas            String
-  status_laporan          StatusLaporan @default(DIPROSES)
+  status_laporan          StatusLaporan @default(SELESAI)
   createdAt               DateTime     @default(now())
   
   laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id])

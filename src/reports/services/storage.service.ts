@@ -9,7 +9,10 @@ export class StorageService {
   private readonly subDirs = {
     house: 'house-photos',
     meter: 'meter-photos',
-    document: 'documents'
+    document: 'documents',
+    penyambungan_meter: 'penyambungan-meter', 
+    penyambungan_rumah: 'penyambungan-rumah', 
+    penyambungan_ba: 'penyambungan-ba'        
   };
 
   constructor() {
@@ -33,7 +36,8 @@ export class StorageService {
 
   async saveFile(
     file: Buffer,
-    type: 'house' | 'meter' | 'document',
+    // Updated type signature to include new types
+    type: 'house' | 'meter' | 'document' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba',
     originalName: string
   ): Promise<string> {
     try {
