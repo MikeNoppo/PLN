@@ -56,12 +56,12 @@
 - [!] Isu: Penanganan laporan duplikat untuk ID Pelanggan yang sama (lihat duplicate_report_issue_plan.md)
 
 ### Pelaporan Petugas Penyambungan
-- [ ] Buat endpoint untuk pelaporan pemasangan meter
-- [ ] Terapkan unggahan file untuk:
+- [x] Buat endpoint untuk pelaporan pemasangan meter
+- [x] Terapkan unggahan file untuk:
   - Foto Pemasangan Meter
   - Foto Rumah Pelanggan
   - Foto Berita Acara Pemasangan
-- [ ] Validasi dan simpan detail laporan perbaikan
+- [x] Validasi dan simpan detail laporan perbaikan
 
 ## Endpoint Manajemen Laporan
 - [ ] Kembangkan endpoint untuk:
@@ -71,21 +71,26 @@
   - Penetapan tugas perbaikan
 
 ## Fungsionalitas Ekspor
-- [ ] Buat endpoint untuk ekspor laporan
-- [ ] Terapkan filter ekspor:
+- [x] Buat endpoint untuk ekspor laporan (Excel)
+- [x] Terapkan filter ekspor:
   - Tahun
   - Tipe Meter
   - Bulan
-  - Petugas
-- [ ] Hasilkan ekspor Excel/PDF dengan urutan kolom spesifik:
+  - Petugas Yantek (berdasarkan nama)
+- [x] Hasilkan ekspor Excel dengan urutan kolom spesifik:
   1. IDPEL
   2. Nomor Meter
   3. Tanggal Pelaporan Yantek
   4. Tanggal Pelaporan Penyambungan
   5. Nama Petugas Yantek
   6. Nama Petugas Penyambungan
-  7. Foto-foto
-  8. Status Laporan
+  7. Foto Rumah
+  8. Foto Meter Rusak
+  9. Foto BA Gangguan
+  10. Foto Pasang Meter
+  11. Foto Rumah Pelanggan
+  12. Foto BA Pasang
+  13. Status Laporan
 
 ## Endpoint Data Dasbor
 - [ ] Buat endpoint untuk statistik dasboard

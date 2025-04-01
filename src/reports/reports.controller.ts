@@ -12,15 +12,20 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  Query, 
+  Res, 
+  StreamableFile, 
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
-import { CreateReportDto } from './dto/create-report.dto'; // Assuming this is for Yantek
+import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
+import { ExportFilterDto } from './dto/export-filter.dto'; 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
 import { UserRole } from '@prisma/client';
+import { Response } from 'express'; 
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -134,5 +139,26 @@ export class ReportsController {
   @Roles(UserRole.ADMIN)
   remove(@Param('id') id: string) {
     return this.reportsService.remove(id);
+  }
+
+  // --- Export Endpoint ---
+  @Get('export/excel')
+  @Roles(UserRole.ADMIN) 
+  async exportExcel(
+    @Query() filterDto: ExportFilterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const buffer = await this.reportsService.exportReportsToExcel(filterDto);
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-'); // Simple timestamp for filename
+    const filename = `Laporan_PLN_${timestamp}.xlsx`;
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+    return new StreamableFile(buffer);
   }
 }
