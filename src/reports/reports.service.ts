@@ -16,10 +16,10 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly imageService: ImageService,
     private readonly storageService: StorageService,
-    private readonly configService: ConfigService, // Inject ConfigService
+    private readonly configService: ConfigService, 
   ) {}
 
-  // Renamed from 'create'
+  
   async createYantek(
     createReportDto: CreateReportDto,
     files: {
@@ -52,7 +52,12 @@ export class ReportsService {
         },
       });
 
-      return report;
+      return {
+        status: 201,
+        message: 'Laporan Yantek berhasil dibuat',
+        data: report,
+      };
+
     } catch (error) {
       // Clean up stored files if database operation fails
       await Promise.all([
@@ -67,10 +72,8 @@ export class ReportsService {
 
   private async processAndSaveImage(
     file: Express.Multer.File,
-    // Added new types for Penyambungan files
     type: 'house' | 'meter' | 'document' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba'
   ): Promise<string> {
-    // Validate image
     const isValid = await this.imageService.validateImage(file.buffer);
     if (!isValid) {
       throw new BadRequestException('Format file tidak valid. Gunakan JPG, JPEG, atau PNG');
@@ -80,7 +83,6 @@ export class ReportsService {
     const compressedBuffer = await this.imageService.compressImage(file.buffer);
 
     // Save compressed image
-    // Adjust storage path based on type if necessary, assuming StorageService handles subdirs
     return this.storageService.saveFile(compressedBuffer, type, file.originalname);
   }
 
@@ -158,7 +160,11 @@ export class ReportsService {
         return laporanPenyambungan;
       });
 
-      return result;
+      return {
+        status: 201,
+        message: 'Laporan Penyambungan berhasil dibuat',
+        data: result,
+      };
 
     } catch (error) {
       // Clean up stored files if any operation fails
@@ -167,7 +173,6 @@ export class ReportsService {
         fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath) : Promise.resolve(),
         fotoBaPath ? this.storageService.deleteFile(fotoBaPath) : Promise.resolve(),
       ]).catch(cleanupError => {
-          // Log cleanup error if needed, but don't let it mask the original error
           console.error("Error during file cleanup:", cleanupError);
       });
 
@@ -332,8 +337,8 @@ export class ReportsService {
           report.nomor_meter,
           formatDate(report.createdAt),
           formatDate(penyambungan?.createdAt),
-          report.nama_petugas || '-', // Petugas Yantek
-          penyambungan?.nama_petugas || '-', // Petugas Penyambungan
+          report.nama_petugas || '-', 
+          penyambungan?.nama_petugas || '-',
           createHyperlink(report.foto_rumah),
           createHyperlink(report.foto_meter_rusak),
           createHyperlink(report.foto_ba_gangguan),
@@ -400,7 +405,11 @@ export class ReportsService {
           status_laporan: dto.status_laporan,
         },
       });
-      return updatedReport;
+      return {
+        status: 201,
+        message: 'Status laporan berhasil diperbarui',
+        data: updatedReport,
+      };
     } catch (error) {
       throw new InternalServerErrorException('Gagal memperbarui status laporan.');
     }

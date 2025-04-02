@@ -178,9 +178,9 @@ export class AuthService {
     });
 
     return {
-      status: 200,
+      status: 200, 
       message: "Logout berhasil",
-      data: null
+      data: null 
     };
   }
 
@@ -206,7 +206,7 @@ export class AuthService {
 
     await this.prisma.token.create({
       data: {
-        token: hashedRefreshToken, // Store the hash
+        token: hashedRefreshToken,
         userId,
         expiresAt,
       },
