@@ -76,7 +76,6 @@
 6.  **(Opsional) Seed Database:**
     Jika Anda perlu mengisi data awal (misal: user admin, petugas), jalankan script seed:
     ```bash
-    # Sesuaikan nama script jika berbeda
     npm run prisma:seed
     npm run prisma:seed-petugas
     ```
@@ -86,7 +85,7 @@
     ```bash
     npm run start:dev
     ```
-    Aplikasi akan tersedia di URL yang Anda set di `APP_URL` atau default `http://localhost:3000`.
+    Aplikasi akan tersedia di URL yang di set di `APP_URL` atau default `http://localhost:3000`.
 
 ## Menjalankan Aplikasi (Mode Produksi)
 
@@ -109,3 +108,7 @@ Dokumentasi API interaktif (Swagger UI) tersedia setelah aplikasi berjalan. Akse
 *   **Dokumentasi NestJS:** [https://docs.nestjs.com/](https://docs.nestjs.com/) - Sangat direkomendasikan jika Anda baru mengenal NestJS.
 
 ---
+
+## Stay in touch
+* Author : [Michael Manoppo](-linkind-)
+ 
