@@ -26,6 +26,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
 import { UserRole } from '@prisma/client';
 import { Response } from 'express'; 
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -123,6 +124,7 @@ export class ReportsController {
   }
 
   // --- Existing GET/DELETE Endpoints ---
+  @SkipThrottle()
   @Get()
   @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
   findAll() {

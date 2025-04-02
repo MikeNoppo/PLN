@@ -7,11 +7,13 @@ import { User } from './decorators/user.decorator';
 import { RolesGuard } from './guards/roles.guard';
 import { UserRole } from '@prisma/client';
 import { Roles } from './decorators/roles.decorators';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('admin/register')
