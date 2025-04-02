@@ -15,10 +15,18 @@ import { PrismaModule } from '../prisma/prisma.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET') || 'your-jwt-secret',
-        signOptions: { expiresIn: '15m' }, // Access token expires in 15 minutes
-      }),
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET environment variable is not set!');
+        }
+        const expiresIn = configService.get<string>('AT_EXPIRES_IN');
+
+        return {
+          secret: secret, 
+          signOptions: { expiresIn: expiresIn },
+        };
+      },
     }),
     ConfigModule,
   ],
