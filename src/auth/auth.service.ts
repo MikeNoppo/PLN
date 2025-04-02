@@ -45,9 +45,6 @@ export class AuthService {
       },
     });
 
-    // Generate tokens for auto login after registration
-    const tokens = await this.generateTokens(user.id, user.username, user.role);
-
     // Return the formatted response
     return {
       status: 200,
@@ -56,10 +53,6 @@ export class AuthService {
         user_id: user.id,
         username: user.username,
         role: user.role,
-        token: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token
-        }
       }
     };
   }
@@ -111,13 +104,12 @@ export class AuthService {
     try {
       // Verify token first
       const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get('REFRESH_TOKEN_SECRET') || 'your-refresh-token-secret',
+        secret: this.configService.get('REFRESH_TOKEN_SECRET'),
       });
 
-      // Find token in database
-      const tokenRecord = await this.prisma.token.findFirst({
+      // Find potential token records for the user that haven't expired
+      const userTokens = await this.prisma.token.findMany({
         where: {
-          token: refreshToken,
           userId: payload.sub,
           expiresAt: {
             gt: new Date(),
@@ -125,10 +117,31 @@ export class AuthService {
         },
       });
 
-      if (!tokenRecord) {
-        throw new UnauthorizedException('Invalid refresh token');
+      if (!userTokens || userTokens.length === 0) {
+        throw new UnauthorizedException('No valid refresh tokens found for user.');
       }
 
+      // Find the matching token by comparing the hash
+      let matchedTokenRecord = null;
+      for (const tokenRecord of userTokens) {
+        const isMatch = await bcrypt.compare(refreshToken, tokenRecord.token);
+        if (isMatch) {
+          matchedTokenRecord = tokenRecord;
+          break;
+        }
+      }
+
+      if (!matchedTokenRecord) {
+        throw new UnauthorizedException('Invalid refresh token provided.');
+      }
+
+      // --- Token Rotation ---
+      //Delete the used refresh token
+      await this.prisma.token.delete({
+        where: { id: matchedTokenRecord.id },
+      });
+
+      //Find user details (needed for generating new tokens)
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
         select: {
@@ -139,17 +152,18 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User not found');
+        throw new UnauthorizedException('User associated with token not found.');
       }
 
-      // Generate new access token
-      const accessToken = this.generateAccessToken(user.id, user.username, user.role);
+
+      const newTokens = await this.generateTokens(user.id, user.username, user.role);
 
       return {
         status: 200,
         message: "Token berhasil diperbarui",
         data: {
-          access_token: accessToken
+          access_token: newTokens.access_token,
+          refresh_token: newTokens.refresh_token, // Return the new refresh token
         }
       };
     } catch (error) {
@@ -183,13 +197,16 @@ export class AuthService {
       },
     );
 
-    // Calculate expiry date (7 days from now)
-    const expiresAt = add(new Date(), { days: 7 });
+    const rtExpiresIn = this.configService.get('RT_EXPIRES_IN') || '7d';
+    const daysToAdd = parseInt(rtExpiresIn.replace('d', ''), 10) || 7;
+    const expiresAt = add(new Date(), { days: daysToAdd });
 
-    // Save refresh token to database
+    // Hash the refresh token before saving
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10); 
+
     await this.prisma.token.create({
       data: {
-        token: refreshToken,
+        token: hashedRefreshToken, // Store the hash
         userId,
         expiresAt,
       },
