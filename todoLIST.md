@@ -67,8 +67,7 @@
 - [ ] Kembangkan endpoint untuk:
   - Mengambil semua laporan
   - Penyaringan laporan
-  - Memperbarui status laporan
-  - Penetapan tugas perbaikan
+  - [x] Memperbarui status laporan (Admin only, PATCH /reports/:id/status)
 
 ## Fungsionalitas Ekspor
 - [x] Buat endpoint untuk ekspor laporan (Excel)
@@ -131,12 +130,6 @@
 - [ ] Pastikan backend mendukung persyaratan aplikasi mobile
 - [ ] Buat dokumentasi API komprehensif
 - [ ] Terapkan versi API
-
-## Pengujian
-- [ ] Uji unit untuk setiap endpoint
-- [ ] Uji integrasi
-- [ ] Pengujian kerentanan keamanan
-- [ ] Pengujian performa
 
 ## Persiapan Deployment
 - [ ] Konfigurasikan lingkungan produksi
