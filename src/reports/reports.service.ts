@@ -2,12 +2,13 @@ import { Injectable, BadRequestException, NotFoundException, ConflictException, 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
-import { ExportFilterDto } from './dto/export-filter.dto'; // Import export DTO
+import { ExportFilterDto } from './dto/export-filter.dto';
 import { ImageService } from './services/image.service';
 import { StorageService } from './services/storage.service';
-import { StatusLaporan, TipeMeter } from '@prisma/client'; // Import TipeMeter
-import * as ExcelJS from 'exceljs'; // Import exceljs
-import { ConfigService } from '@nestjs/config'; // Import ConfigService for base URL
+import { StatusLaporan, TipeMeter } from '@prisma/client';
+import * as ExcelJS from 'exceljs';
+import { ConfigService } from '@nestjs/config';
+import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 
 @Injectable()
 export class ReportsService {
@@ -376,6 +377,32 @@ export class ReportsService {
     } catch (error) {
       console.error('Error generating Excel file:', error);
       throw new InternalServerErrorException('Gagal membuat file Excel.');
+    }
+  }
+
+  // --- Update Status Functionality ---
+
+  async updateStatus(id: string, dto: UpdateReportStatusDto): Promise<any> { // Consider returning the updated report type
+    // 1. Find the report first to ensure it exists
+    const report = await this.prisma.laporanYantek.findUnique({
+      where: { id },
+    });
+
+    if (!report) {
+      throw new NotFoundException(`Laporan Yantek dengan ID ${id} tidak ditemukan.`);
+    }
+
+    // 2. Update the status
+    try {
+      const updatedReport = await this.prisma.laporanYantek.update({
+        where: { id },
+        data: {
+          status_laporan: dto.status_laporan,
+        },
+      });
+      return updatedReport;
+    } catch (error) {
+      throw new InternalServerErrorException('Gagal memperbarui status laporan.');
     }
   }
 }

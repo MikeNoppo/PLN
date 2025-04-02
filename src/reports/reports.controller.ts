@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   UseInterceptors,
@@ -20,7 +21,8 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
-import { ExportFilterDto } from './dto/export-filter.dto'; 
+import { ExportFilterDto } from './dto/export-filter.dto';
+import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
@@ -162,5 +164,15 @@ export class ReportsController {
     res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
 
     return new StreamableFile(buffer);
+  }
+
+  // --- Update Status Endpoint ---
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN) 
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() updateReportStatusDto: UpdateReportStatusDto,
+  ) {
+    return this.reportsService.updateStatus(id, updateReportStatusDto);
   }
 }
