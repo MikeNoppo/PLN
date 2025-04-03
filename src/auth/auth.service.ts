@@ -107,7 +107,7 @@ export class AuthService {
         secret: this.configService.get('REFRESH_TOKEN_SECRET'),
       });
 
-      // Find potential token records for the user that haven't expired
+      // Find user token that haven't expired
       const userTokens = await this.prisma.token.findMany({
         where: {
           userId: payload.sub,
@@ -121,7 +121,6 @@ export class AuthService {
         throw new UnauthorizedException('No valid refresh tokens found for user.');
       }
 
-      // Find the matching token by comparing the hash
       let matchedTokenRecord = null;
       for (const tokenRecord of userTokens) {
         const isMatch = await bcrypt.compare(refreshToken, tokenRecord.token);
@@ -136,12 +135,10 @@ export class AuthService {
       }
 
       // --- Token Rotation ---
-      //Delete the used refresh token
       await this.prisma.token.delete({
         where: { id: matchedTokenRecord.id },
       });
 
-      //Find user details (needed for generating new tokens)
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
         select: {
@@ -163,7 +160,7 @@ export class AuthService {
         message: "Token berhasil diperbarui",
         data: {
           access_token: newTokens.access_token,
-          refresh_token: newTokens.refresh_token, // Return the new refresh token
+          refresh_token: newTokens.refresh_token,
         }
       };
     } catch (error) {
@@ -172,7 +169,6 @@ export class AuthService {
   }
 
   async logout(userId: string) {
-    // Delete all refresh tokens for the user
     await this.prisma.token.deleteMany({
       where: { userId },
     });
@@ -185,10 +181,8 @@ export class AuthService {
   }
 
   private async generateTokens(userId: string, username: string, role: UserRole) {
-    // Generate access token
     const accessToken = this.generateAccessToken(userId, username, role);
 
-    // Generate refresh token
     const refreshToken = this.jwtService.sign(
       { sub: userId, username, role },
       {

@@ -36,7 +36,7 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   // --- Endpoint for Yantek Report ---
-  @Post('yantek') // Changed route
+  @Post('yantek')
   @Roles(UserRole.PETUGAS_YANTEK)
   @UseInterceptors(
     FileFieldsInterceptor([
@@ -74,7 +74,6 @@ export class ReportsController {
       }
     }
 
-    // Assuming the service method will be renamed to createYantek
     return this.reportsService.createYantek(createReportDto, files);
   }
 
@@ -105,7 +104,7 @@ export class ReportsController {
       throw new BadRequestException('Semua foto wajib diunggah');
     }
 
-    // Validate file types (similar to yantek)
+
     const validImageType = /^image\/(jpeg|jpg|png)$/;
     const allFiles = [
       { name: 'foto pemasangan meter', file: files.foto_pemasangan_meter[0] },
@@ -121,7 +120,6 @@ export class ReportsController {
       }
     }
 
-    // Assuming the service method will be named createPenyambungan
     return this.reportsService.createPenyambungan(createPenyambunganDto, files);
   }
 

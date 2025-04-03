@@ -16,7 +16,6 @@ export class StorageService {
   };
 
   constructor() {
-    // Ensure upload directories exist
     this.initializeDirectories();
   }
 
@@ -24,7 +23,6 @@ export class StorageService {
     try {
       await fs.mkdir(this.uploadDir, { recursive: true });
       
-      // Create subdirectories
       for (const dir of Object.values(this.subDirs)) {
         await fs.mkdir(path.join(this.uploadDir, dir), { recursive: true });
       }
@@ -36,7 +34,6 @@ export class StorageService {
 
   async saveFile(
     file: Buffer,
-    // Updated type signature to include new types
     type: 'house' | 'meter' | 'document' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba',
     originalName: string
   ): Promise<string> {
