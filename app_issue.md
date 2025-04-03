@@ -70,6 +70,33 @@ if (existingActiveReport) {
 - [ ] Deployment
 
 ## Catatan
-* Perlu diskusi dengan manager untuk memastikan solusi ini sesuai dengan kebutuhan bisnis
-* Perlu mempertimbangkan dampak ke fitur lain yang mungkin bergantung pada unique constraint ID_Pelanggan
-* Perlu memastikan UI/mobile app siap menangani multiple laporan per pelanggan
+* Perlu diskusi dengan manager untuk memastikan solusi ini sesuai dengan kebutuhan bisnis.
+* Perlu mempertimbangkan dampak ke fitur lain yang mungkin bergantung pada unique constraint ID_Pelanggan.
+* Perlu memastikan UI/mobile app siap menangani multiple laporan per pelanggan.
+
+---
+
+# Isu Ekspor Excel: Penyematan Gambar vs Hyperlink
+
+## Masalah yang Ditemukan
+Saat ini, fitur ekspor Excel (`GET /reports/export/excel`) menghasilkan hyperlink untuk kolom foto. Ada permintaan untuk menyematkan (embed) gambar secara langsung ke dalam sel Excel.
+
+## Opsi Solusi & Pertimbangan
+
+1.  **Hyperlink (Implementasi Saat Ini):**
+    *   **Pros:** Ukuran file Excel kecil, proses ekspor cepat, implementasi sederhana.
+    *   **Cons:** Pengguna harus online dan mengklik link untuk melihat gambar.
+
+2.  **Menyematkan Gambar Penuh:**
+    *   **Pros:** Gambar langsung terlihat di dalam file Excel.
+    *   **Cons:** Ukuran file Excel akan menjadi **sangat besar** (bisa puluhan/ratusan MB), performa Excel mungkin menurun saat dibuka, implementasi lebih kompleks (perlu membaca file gambar dari server dan menggunakan `worksheet.addImage()`).
+
+3.  **Menyematkan Thumbnail + Hyperlink:**
+    *   **Pros:** Memberikan preview visual kecil di sel, ukuran file lebih kecil daripada menyematkan gambar penuh, tetap ada link ke gambar asli.
+    *   **Cons:** Implementasi paling kompleks (perlu membuat thumbnail saat upload atau saat ekspor, lalu menyematkan thumbnail dan membuat hyperlink).
+
+## Status
+- [x] Identifikasi masalah dan opsi solusi.
+- [ ] Persetujuan manager mengenai pendekatan yang diinginkan (Hyperlink / Embed Penuh / Thumbnail + Hyperlink).
+- [ ] Implementasi (jika berbeda dari hyperlink saat ini).
+- [ ] Testing.

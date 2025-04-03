@@ -109,7 +109,7 @@
   - Memodifikasi foto
 
 ### Hak Akses Petugas
-- [ ] Buat endpoint untuk mengedit:
+- [ ] Buat endpoint untuk mengedit laporan:
   - Foto laporan sendiri
   - Nomor telepon
   - IDPEL
