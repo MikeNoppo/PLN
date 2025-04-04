@@ -84,18 +84,16 @@ export class AuthService {
       data: { lastOnline: new Date() },
     });
 
-    // Return the formatted response
+    // Return user data and tokens separately
     return {
-      status: 200,
-      message: "Login berhasil",
-      data: {
-        user_id: user.id,
+      user: {
+        userId: user.id,
         username: user.username,
         role: user.role,
-        token: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token
-        }
+      },
+      tokens: {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
       }
     };
   }
