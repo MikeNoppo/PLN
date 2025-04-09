@@ -29,17 +29,18 @@ export class AuthController {
 
     const atExpiresIn = this.authService['configService']?.get('AT_EXPIRES_IN') || '1h'; 
     const rtExpiresIn = this.authService['configService']?.get('RT_EXPIRES_IN') || '7d'; 
-    const nodeEnv = this.authService['configService']?.get('NODE_ENV');
+    
+    const cookieSecure = this.authService['configService']?.get('COOKIE_SECURE') === 'true';
+    const cookieSameSite = this.authService['configService']?.get('COOKIE_SAME_SITE') || 'lax';
 
     const atExpiresInMs = getDurationInMs(atExpiresIn, 3600000); 
     const rtExpiresInMs = getDurationInMs(rtExpiresIn, 7 * 24 * 3600000); 
 
-
     if (loginResult?.data?.token?.access_token) {
       response.cookie('access_token', loginResult.data.token.access_token, {
         httpOnly: true,
-        secure: nodeEnv === 'production',
-        sameSite: 'lax', // Or 'strict'
+        secure: cookieSecure,
+        sameSite: cookieSameSite,
         path: '/',
         expires: new Date(Date.now() + atExpiresInMs)
       });
@@ -50,9 +51,9 @@ export class AuthController {
     if (loginResult?.data?.token?.refresh_token) {
       response.cookie('refresh_token', loginResult.data.token.refresh_token, {
         httpOnly: true,
-        secure: nodeEnv === 'production',
-        sameSite: 'lax', // Or 'strict'
-        path: '/', 
+        secure: cookieSecure,
+        sameSite: cookieSameSite,
+        path: '/',
         expires: new Date(Date.now() + rtExpiresInMs)
       });
     } else {
@@ -84,21 +85,24 @@ export class AuthController {
     const atExpiresIn = this.authService['configService']?.get('AT_EXPIRES_IN') || '1h';
     const rtExpiresIn = this.authService['configService']?.get('RT_EXPIRES_IN') || '7d';
 
+    const cookieSecure = this.authService['configService']?.get('COOKIE_SECURE') === 'true';
+    const cookieSameSite = this.authService['configService']?.get('COOKIE_SAME_SITE') || 'lax';
+
     const atExpiresInMs = getDurationInMs(atExpiresIn, 3600000);
     const rtExpiresInMs = getDurationInMs(rtExpiresIn, 7 * 24 * 3600000);
 
      response.cookie('access_token', refreshResult.data.access_token, {
       httpOnly: true,
-      secure: nodeEnv === 'production',
-      sameSite: 'lax', // Or 'strict'
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
       path: '/',
       expires: new Date(Date.now() + atExpiresInMs)
     });
 
     response.cookie('refresh_token', refreshResult.data.refresh_token, {
       httpOnly: true,
-      secure: nodeEnv === 'production',
-      sameSite: 'lax', // Or 'strict'
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
       path: '/', 
       expires: new Date(Date.now() + rtExpiresInMs)
     });
