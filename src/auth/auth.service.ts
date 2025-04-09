@@ -123,8 +123,7 @@ export class AuthService {
 
       let matchedTokenRecord = null;
       for (const tokenRecord of userTokens) {
-        const isMatch = await bcrypt.compare(refreshToken, tokenRecord.token);
-        if (isMatch) {
+        if (tokenRecord.token === refreshToken) {
           matchedTokenRecord = tokenRecord;
           break;
         }
@@ -149,6 +148,7 @@ export class AuthService {
       });
 
       if (!user) {
+        // This case should be rare if payload verification succeeded, but good to handle
         throw new UnauthorizedException('User associated with token not found.');
       }
 
@@ -164,7 +164,13 @@ export class AuthService {
         }
       };
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+       // Log the specific error for better debugging
+       console.error('Error during refreshToken:', error);
+       if (error instanceof UnauthorizedException) {
+         throw error; // Re-throw known unauthorized errors
+       }
+       // Throw a generic error for unexpected issues (like JWT verification failure)
+      throw new UnauthorizedException(`Invalid refresh token: ${error.message}`);
     }
   }
 
@@ -174,9 +180,9 @@ export class AuthService {
     });
 
     return {
-      status: 200, 
+      status: 200,
       message: "Logout berhasil",
-      data: null 
+      data: null
     };
   }
 
@@ -195,12 +201,10 @@ export class AuthService {
     const daysToAdd = parseInt(rtExpiresIn.replace('d', ''), 10) || 7;
     const expiresAt = add(new Date(), { days: daysToAdd });
 
-    // Hash the refresh token before saving
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10); 
 
     await this.prisma.token.create({
       data: {
-        token: hashedRefreshToken,
+        token: refreshToken,
         userId,
         expiresAt,
       },
