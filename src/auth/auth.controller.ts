@@ -50,11 +50,7 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
   async refreshTokens(@User('refreshToken') refreshToken: string, @Res({ passthrough: true }) response: Response) {
-    if (!refreshToken) {
-       // This case might happen if the guard allows request through but strategy returns null/undefined user
-       // Or if the @User decorator fails.
-       throw new UnauthorizedException('Refresh token not found in request'); 
-    }
+    
     const refreshResult = await this.authService.refreshToken(refreshToken);
 
     const cookieConfig = getCookieConfig(this.authService['configService']);

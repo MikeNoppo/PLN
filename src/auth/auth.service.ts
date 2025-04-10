@@ -101,6 +101,10 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not found in request');
+    }
+
     try {
       // Verify token first
       const payload = this.jwtService.verify(refreshToken, {
@@ -164,12 +168,12 @@ export class AuthService {
         }
       };
     } catch (error) {
-       // Log the specific error for better debugging
-       console.error('Error during refreshToken:', error);
-       if (error instanceof UnauthorizedException) {
-         throw error; // Re-throw known unauthorized errors
-       }
-       // Throw a generic error for unexpected issues (like JWT verification failure)
+      // Log the specific error for better debugging
+      console.error('Error during refreshToken:', error);
+      if (error instanceof UnauthorizedException) {
+        throw error; // Re-throw known unauthorized errors
+      }
+      // Throw a generic error for unexpected issues (like JWT verification failure)
       throw new UnauthorizedException(`Invalid refresh token: ${error.message}`);
     }
   }
