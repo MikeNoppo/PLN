@@ -1,7 +1,7 @@
-import { Controller, Post, Body, UseGuards, Get, Res, HttpStatus, UnauthorizedException } from '@nestjs/common'; 
+import { Controller, Post, Body, UseGuards, Get, Res, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto'; 
+import { LoginDto, RegisterDto, RefreshTokenDto } from './dto/auth.dto'; 
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { User } from './decorators/user.decorator';
@@ -9,7 +9,7 @@ import { RolesGuard } from './guards/roles.guard';
 import { UserRole } from '@prisma/client';
 import { Roles } from './decorators/roles.decorators';
 import { Throttle } from '@nestjs/throttler';
-import { getDurationInMs } from '../utils/duration.utils'; 
+import { getCookieConfig, setAuthCookies } from '../utils/cookie.utils';
 
 @Controller('auth')
 export class AuthController {
@@ -27,47 +27,23 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const loginResult = await this.authService.login(loginDto);
 
-    const atExpiresIn = this.authService['configService']?.get('AT_EXPIRES_IN') || '1h'; 
-    const rtExpiresIn = this.authService['configService']?.get('RT_EXPIRES_IN') || '7d'; 
+    const cookieConfig = getCookieConfig(this.authService['configService']);
     
-    const cookieSecure = this.authService['configService']?.get('COOKIE_SECURE') === 'true';
-    const cookieSameSite = this.authService['configService']?.get('COOKIE_SAME_SITE') || 'lax';
-
-    const atExpiresInMs = getDurationInMs(atExpiresIn, 3600000); 
-    const rtExpiresInMs = getDurationInMs(rtExpiresIn, 7 * 24 * 3600000); 
-
-    if (loginResult?.data?.token?.access_token) {
-      response.cookie('access_token', loginResult.data.token.access_token, {
-        httpOnly: true,
-        secure: cookieSecure,
-        sameSite: cookieSameSite,
-        path: '/',
-        expires: new Date(Date.now() + atExpiresInMs)
-      });
-    } else {
-      console.error('Access Token is missing, cannot set cookie.');
-    }
-
-    if (loginResult?.data?.token?.refresh_token) {
-      response.cookie('refresh_token', loginResult.data.token.refresh_token, {
-        httpOnly: true,
-        secure: cookieSecure,
-        sameSite: cookieSameSite,
-        path: '/',
-        expires: new Date(Date.now() + rtExpiresInMs)
-      });
-    } else {
-      console.error('Refresh Token is missing, cannot set cookie.');
-    }
+    setAuthCookies(
+      response,
+      loginResult?.data?.token?.access_token,
+      loginResult?.data?.token?.refresh_token,
+      cookieConfig
+    );
 
     return {
-        status: HttpStatus.OK, 
-        message: "Login berhasil",
-        data: {
-            user_id: loginResult.data.user_id,
-            username: loginResult.data.username,
-            role: loginResult.data.role,
-        }
+      status: HttpStatus.OK, 
+      message: "Login berhasil",
+      data: {
+        user_id: loginResult.data.user_id,
+        username: loginResult.data.username,
+        role: loginResult.data.role,
+      }
     };
   }
 
@@ -81,31 +57,14 @@ export class AuthController {
     }
     const refreshResult = await this.authService.refreshToken(refreshToken);
 
-    const nodeEnv = this.authService['configService']?.get('NODE_ENV');
-    const atExpiresIn = this.authService['configService']?.get('AT_EXPIRES_IN') || '1h';
-    const rtExpiresIn = this.authService['configService']?.get('RT_EXPIRES_IN') || '7d';
-
-    const cookieSecure = this.authService['configService']?.get('COOKIE_SECURE') === 'true';
-    const cookieSameSite = this.authService['configService']?.get('COOKIE_SAME_SITE') || 'lax';
-
-    const atExpiresInMs = getDurationInMs(atExpiresIn, 3600000);
-    const rtExpiresInMs = getDurationInMs(rtExpiresIn, 7 * 24 * 3600000);
-
-     response.cookie('access_token', refreshResult.data.access_token, {
-      httpOnly: true,
-      secure: cookieSecure,
-      sameSite: cookieSameSite,
-      path: '/',
-      expires: new Date(Date.now() + atExpiresInMs)
-    });
-
-    response.cookie('refresh_token', refreshResult.data.refresh_token, {
-      httpOnly: true,
-      secure: cookieSecure,
-      sameSite: cookieSameSite,
-      path: '/', 
-      expires: new Date(Date.now() + rtExpiresInMs)
-    });
+    const cookieConfig = getCookieConfig(this.authService['configService']);
+    
+    setAuthCookies(
+      response,
+      refreshResult?.data?.access_token,
+      refreshResult?.data?.refresh_token,
+      cookieConfig
+    );
 
     return {
       status: HttpStatus.OK,
@@ -134,6 +93,52 @@ export class AuthController {
       userId: user.userId,
       username: user.username,
       role: user.role
+    };
+  }
+
+  // --- Mobile Endpoints --
+
+  @Post('mobile/login')
+  async mobileLogin(@Body() loginDto: LoginDto) {
+    const loginResult = await this.authService.login(loginDto);
+    return {
+      status: HttpStatus.OK,
+      message: "Login berhasil",
+      data: {
+        user_id: loginResult.data.user_id,
+        username: loginResult.data.username,
+        role: loginResult.data.role,
+        access_token: loginResult.data.token.access_token,
+        refresh_token: loginResult.data.token.refresh_token,
+      }
+    };
+  }
+
+  @Post('mobile/refresh')
+  async mobileRefreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
+    const { refreshToken } = refreshTokenDto;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not provided in body');
+    }
+    const refreshResult = await this.authService.refreshToken(refreshToken);
+    return {
+      status: HttpStatus.OK,
+      message: "Token berhasil diperbarui",
+      data: {
+        access_token: refreshResult.data.access_token,
+        refresh_token: refreshResult.data.refresh_token,
+      }
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('mobile/logout')
+  async mobileLogout(@User() user: { userId: string; username: string }) {
+    await this.authService.logout(user.userId);
+    return {
+        status: HttpStatus.OK,
+        message: "Logout berhasil",
+        data: null
     };
   }
 }
