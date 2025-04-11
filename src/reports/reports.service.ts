@@ -9,6 +9,7 @@ import { StatusLaporan, TipeMeter } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { ConfigService } from '@nestjs/config';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Injectable()
 export class ReportsService {
@@ -183,12 +184,44 @@ export class ReportsService {
   }
 
 
-  async findAll() {
-    return this.prisma.laporanYantek.findMany({
-      orderBy: {
-        createdAt: 'desc',
+  async findAll(paginationQuery: PaginationQueryDto) {
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.laporanYantek.findMany({
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          laporan_penyambungan: {
+            select: {
+              createdAt: true,
+              nama_petugas: true,
+              foto_pemasangan_meter: true,
+              foto_rumah_pelanggan: true,
+              foto_ba_pemasangan: true,
+            },
+          },
+        },
+      }),
+      this.prisma.laporanYantek.count(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
       },
-    });
+    };
   }
 
   async findOne(id: string) {

@@ -29,6 +29,7 @@ import { Roles } from '../auth/decorators/roles.decorators';
 import { UserRole } from '@prisma/client';
 import { Response } from 'express'; 
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -127,8 +128,8 @@ export class ReportsController {
   @SkipThrottle()
   @Get()
   @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
-  findAll() {
-    return this.reportsService.findAll();
+  findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.reportsService.findAll(paginationQuery);
   }
 
   @Get(':id')
