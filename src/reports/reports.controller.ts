@@ -8,11 +8,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   Body,
-  BadRequestException,
   UseGuards,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
   Query, 
   Res, 
   StreamableFile, 
@@ -55,26 +51,7 @@ export class ReportsController {
       foto_ba_gangguan?: Express.Multer.File[];
     },
   ) {
-    if (!files.foto_rumah?.[0] || !files.foto_meter_rusak?.[0] || !files.foto_ba_gangguan?.[0]) {
-      throw new BadRequestException('Semua foto wajib diunggah');
-    }
-
-    // Validate file types
-    const validImageType = /^image\/(jpeg|jpg|png)$/;
-    const allFiles = [
-      { name: 'foto rumah', file: files.foto_rumah[0] },
-      { name: 'foto meter rusak', file: files.foto_meter_rusak[0] },
-      { name: 'foto BA gangguan', file: files.foto_ba_gangguan[0] },
-    ];
-
-    for (const { name, file } of allFiles) {
-      if (!validImageType.test(file.mimetype)) {
-        throw new BadRequestException(
-          `File ${name} harus berupa gambar (jpg, jpeg, atau png). Tipe yang diterima: ${validImageType}, tipe yang dikirim: ${file.mimetype}`,
-        );
-      }
-    }
-
+    this.reportsService.validateAndProcessYantekFiles(files);
     return this.reportsService.createYantek(createReportDto, files);
   }
 
@@ -97,30 +74,7 @@ export class ReportsController {
       foto_ba_pemasangan?: Express.Multer.File[];
     },
   ) {
-    if (
-      !files.foto_pemasangan_meter?.[0] ||
-      !files.foto_rumah_pelanggan?.[0] ||
-      !files.foto_ba_pemasangan?.[0]
-    ) {
-      throw new BadRequestException('Semua foto wajib diunggah');
-    }
-
-
-    const validImageType = /^image\/(jpeg|jpg|png)$/;
-    const allFiles = [
-      { name: 'foto pemasangan meter', file: files.foto_pemasangan_meter[0] },
-      { name: 'foto rumah pelanggan', file: files.foto_rumah_pelanggan[0] },
-      { name: 'foto BA pemasangan', file: files.foto_ba_pemasangan[0] },
-    ];
-
-    for (const { name, file } of allFiles) {
-      if (!validImageType.test(file.mimetype)) {
-        throw new BadRequestException(
-          `File ${name} harus berupa gambar (jpg, jpeg, atau png). Tipe yang diterima: ${validImageType}, tipe yang dikirim: ${file.mimetype}`,
-        );
-      }
-    }
-
+    this.reportsService.validateAndProcessPenyambunganFiles(files);
     return this.reportsService.createPenyambungan(createPenyambunganDto, files);
   }
 
@@ -154,17 +108,7 @@ export class ReportsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
     const buffer = await this.reportsService.exportReportsToExcel(filterDto);
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-'); // Simple timestamp for filename
-    const filename = `Laporan_PLN_${timestamp}.xlsx`;
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-
-    return new StreamableFile(buffer);
+    return this.reportsService.prepareExcelResponse(buffer, res);
   }
 
   // --- Update Status Endpoint ---

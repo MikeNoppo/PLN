@@ -10,6 +10,9 @@ import * as ExcelJS from 'exceljs';
 import { ConfigService } from '@nestjs/config';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { FileValidator } from '../utils/file-validator.util';
+import { StreamableFile } from '@nestjs/common';
+import { Response } from 'express';
 
 @Injectable()
 export class ReportsService {
@@ -21,7 +24,55 @@ export class ReportsService {
     private readonly configService: ConfigService, 
   ) {}
 
-  
+  validateAndProcessYantekFiles(files: {
+    foto_rumah?: Express.Multer.File[];
+    foto_meter_rusak?: Express.Multer.File[];
+    foto_ba_gangguan?: Express.Multer.File[];
+  }) {
+    FileValidator.validateRequiredFiles(files, ['foto_rumah', 'foto_meter_rusak', 'foto_ba_gangguan']);
+
+    const allFiles = [
+      { name: 'foto rumah', file: files.foto_rumah[0] },
+      { name: 'foto meter rusak', file: files.foto_meter_rusak[0] },
+      { name: 'foto BA gangguan', file: files.foto_ba_gangguan[0] },
+    ];
+
+    FileValidator.validateImageFiles(allFiles);
+  }
+
+  validateAndProcessPenyambunganFiles(files: {
+    foto_pemasangan_meter?: Express.Multer.File[];
+    foto_rumah_pelanggan?: Express.Multer.File[];
+    foto_ba_pemasangan?: Express.Multer.File[];
+  }) {
+    FileValidator.validateRequiredFiles(files, [
+      'foto_pemasangan_meter',
+      'foto_rumah_pelanggan',
+      'foto_ba_pemasangan'
+    ]);
+
+    const allFiles = [
+      { name: 'foto pemasangan meter', file: files.foto_pemasangan_meter[0] },
+      { name: 'foto rumah pelanggan', file: files.foto_rumah_pelanggan[0] },
+      { name: 'foto BA pemasangan', file: files.foto_ba_pemasangan[0] },
+    ];
+
+    FileValidator.validateImageFiles(allFiles);
+  }
+
+  prepareExcelResponse(buffer: Buffer, res: Response): StreamableFile {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `Laporan_PLN_${timestamp}.xlsx`;
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+    return new StreamableFile(buffer);
+  }
+
   async createYantek(
     createReportDto: CreateReportDto,
     files: {
