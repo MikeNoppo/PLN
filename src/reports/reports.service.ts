@@ -255,16 +255,29 @@ export class ReportsService {
       }
     });
 
-    // Delete database record regardless of file deletion results
-    const deletedReport = await this.prisma.laporanYantek.delete({
-      where: { id },
-    });
+    try {
+      // Use transaction to ensure both deletions succeed or fail together
+      const deletedReport = await this.prisma.$transaction(async (prisma) => {
+        // First delete the related LaporanPenyambungan if it exists
+        await prisma.laporanPenyambungan.deleteMany({
+          where: { laporan_yante_id: id },
+        });
 
-    return {
-      status: 200,
-      message: 'Laporan berhasil dihapus',
-      data: deletedReport,
-    };
+        // Then delete the LaporanYantek
+        return await prisma.laporanYantek.delete({
+          where: { id },
+        });
+      });
+
+      return {
+        status: 200,
+        message: 'Laporan berhasil dihapus',
+        data: deletedReport,
+      };
+    } catch (error) {
+      this.logger.error('Error deleting report:', error);
+      throw new InternalServerErrorException('Gagal menghapus laporan');
+    }
   }
 
   // --- Export Functionality ---

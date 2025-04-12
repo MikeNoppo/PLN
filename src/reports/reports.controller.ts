@@ -132,12 +132,14 @@ export class ReportsController {
     return this.reportsService.findAll(paginationQuery);
   }
 
+  @SkipThrottle()
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
   findOne(@Param('id') id: string) {
     return this.reportsService.findOne(id);
   }
 
+  @SkipThrottle()
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   remove(@Param('id') id: string) {
