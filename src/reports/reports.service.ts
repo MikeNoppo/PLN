@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
@@ -13,6 +13,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly imageService: ImageService,
@@ -240,16 +241,30 @@ export class ReportsService {
     const report = await this.findOne(id);
 
     // Delete associated files
-    await Promise.all([
+    const fileDeletionResults = await Promise.all([
       this.storageService.deleteFile(report.foto_rumah),
       this.storageService.deleteFile(report.foto_meter_rusak),
       this.storageService.deleteFile(report.foto_ba_gangguan),
     ]);
 
-    // Delete database record
-    return this.prisma.laporanYantek.delete({
+    // Log any file deletion issues
+    fileDeletionResults.forEach((result, index) => {
+      if (result.error) {
+        const fileType = ['foto_rumah', 'foto_meter_rusak', 'foto_ba_gangguan'][index];
+        this.logger.warn(`Issue deleting ${fileType}: ${result.error}`);
+      }
+    });
+
+    // Delete database record regardless of file deletion results
+    const deletedReport = await this.prisma.laporanYantek.delete({
       where: { id },
     });
+
+    return {
+      status: 200,
+      message: 'Laporan berhasil dihapus',
+      data: deletedReport,
+    };
   }
 
   // --- Export Functionality ---

@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
   private readonly uploadDir = 'uploads/reports';
   private readonly subDirs = {
     house: 'house-photos',
@@ -27,7 +28,7 @@ export class StorageService {
         await fs.mkdir(path.join(this.uploadDir, dir), { recursive: true });
       }
     } catch (error) {
-      console.error('Error creating directories:', error);
+      this.logger.error('Error creating directories:', error);
       throw new Error('Failed to initialize storage directories');
     }
   }
@@ -45,21 +46,49 @@ export class StorageService {
 
       await fs.writeFile(filePath, file);
 
-      // Return relative path for database storage
       return path.join(subDir, filename);
     } catch (error) {
-      console.error('Error saving file:', error);
+      this.logger.error('Error saving file:', error);
       throw new Error('Failed to save file');
     }
   }
 
-  async deleteFile(filePath: string): Promise<void> {
+  async deleteFile(filePath: string): Promise<{ success: boolean; error?: string }> {
     try {
+      if (!filePath) {
+        return { success: true };
+      }
+
       const fullPath = path.join(this.uploadDir, filePath);
+      
+      // Check if file exists before attempting to delete
+      try {
+        await fs.access(fullPath);
+      } catch (error) {
+        this.logger.warn(`File not found: ${fullPath}`);
+        return { 
+          success: true, 
+          error: `File not found: ${filePath}` 
+        };
+      }
+
       await fs.unlink(fullPath);
+      return { success: true };
     } catch (error) {
-      console.error('Error deleting file:', error);
-      throw new Error('Failed to delete file');
+      this.logger.error(`Error deleting file ${filePath}:`, error);
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+  }
+
+  async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(path.join(this.uploadDir, filePath));
+      return true;
+    } catch {
+      return false;
     }
   }
 
