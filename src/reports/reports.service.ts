@@ -17,12 +17,64 @@ import { Response } from 'express';
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
+
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly imageService: ImageService,
+    private prisma: PrismaService,
     private readonly storageService: StorageService,
-    private readonly configService: ConfigService, 
+    private readonly imageService: ImageService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private async generateLaporanId(type: 'YT' | 'PS'): Promise<string> {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const prefix = `${type}${year}${month}`;
+    
+    // Optimasi query dengan index
+    const lastReport = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id 
+      FROM "${type === 'YT' ? 'LaporanYantek' : 'LaporanPenyambungan'}"
+      WHERE id >= ${prefix + '0000'}
+        AND id <= ${prefix + '9999'}
+      ORDER BY id DESC 
+      LIMIT 1`;
+
+    let sequence = 1;
+    if (lastReport.length > 0) {
+      const lastSequence = parseInt(lastReport[0].id.slice(-4));
+      sequence = lastSequence + 1;
+    }
+
+    if (sequence > 9999) {
+      throw new Error(`Sequence limit exceeded for ${prefix}`);
+    }
+
+    return `${prefix}${String(sequence).padStart(4, '0')}`;
+  }
+
+  // Tambahkan simple caching untuk mengurangi query
+  private lastGeneratedIds: Map<string, { id: string; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 1000; // 1 detik
+
+  private async getNextId(type: 'YT' | 'PS'): Promise<string> {
+    const now = Date.now();
+    const currentPrefix = `${type}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const cached = this.lastGeneratedIds.get(currentPrefix);
+
+    if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
+      const lastSequence = parseInt(cached.id.slice(-4));
+      const nextSequence = lastSequence + 1;
+      const nextId = `${currentPrefix}${String(nextSequence).padStart(4, '0')}`;
+      
+      this.lastGeneratedIds.set(currentPrefix, { id: nextId, timestamp: now });
+      return nextId;
+    }
+
+    const newId = await this.generateLaporanId(type);
+    this.lastGeneratedIds.set(currentPrefix, { id: newId, timestamp: now });
+    return newId;
+  }
 
   validateAndProcessYantekFiles(files: {
     foto_rumah?: Express.Multer.File[];
@@ -81,10 +133,7 @@ export class ReportsService {
       foto_ba_gangguan?: Express.Multer.File[]
     }
   ) {
-    // Validate required files
-    if (!files.foto_rumah?.[0] || !files.foto_meter_rusak?.[0] || !files.foto_ba_gangguan?.[0]) {
-      throw new BadRequestException('Semua foto wajib diunggah');
-    }
+    const id = await this.getNextId('YT');
 
     // Process and store files
     const [fotoRumahPath, fotoMeterPath, fotoBaPath] = await Promise.all([
@@ -97,6 +146,7 @@ export class ReportsService {
       // Create report in database
       const report = await this.prisma.laporanYantek.create({
         data: {
+          id,
           ...createReportDto,
           foto_rumah: fotoRumahPath,
           foto_meter_rusak: fotoMeterPath,
@@ -119,6 +169,7 @@ export class ReportsService {
         this.storageService.deleteFile(fotoBaPath),
       ]);
 
+      this.logger.error('Error creating report:', error);
       throw error;
     }
   }
@@ -127,16 +178,8 @@ export class ReportsService {
     file: Express.Multer.File,
     type: 'house' | 'meter' | 'document' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba'
   ): Promise<string> {
-    const isValid = await this.imageService.validateImage(file.buffer);
-    if (!isValid) {
-      throw new BadRequestException('Format file tidak valid. Gunakan JPG, JPEG, atau PNG');
-    }
-
-    // Compress image
-    const compressedBuffer = await this.imageService.compressImage(file.buffer);
-
-    // Save compressed image
-    return this.storageService.saveFile(compressedBuffer, type, file.originalname);
+    const compressedImageBuffer = await this.imageService.compressImage(file.buffer);
+    return this.storageService.saveFile(compressedImageBuffer, type, file.originalname);
   }
 
   async createPenyambungan(
@@ -147,16 +190,6 @@ export class ReportsService {
       foto_ba_pemasangan?: Express.Multer.File[];
     }
   ) {
-    // 1. Validate required files
-    if (
-      !files.foto_pemasangan_meter?.[0] ||
-      !files.foto_rumah_pelanggan?.[0] ||
-      !files.foto_ba_pemasangan?.[0]
-    ) {
-      throw new BadRequestException('Semua foto penyambungan wajib diunggah');
-    }
-
-    // 2. Validate related LaporanYantek
     const laporanYantek = await this.prisma.laporanYantek.findUnique({
       where: { id: createPenyambunganDto.laporan_yante_id },
     });
@@ -192,9 +225,12 @@ export class ReportsService {
 
       // 4. Perform database operations in a transaction
       const result = await this.prisma.$transaction(async (prisma) => {
+        const id = await this.getNextId('PS');
+
         // Create LaporanPenyambungan
         const laporanPenyambungan = await prisma.laporanPenyambungan.create({
           data: {
+            id,
             laporan_yante_id: createPenyambunganDto.laporan_yante_id,
             nama_petugas: createPenyambunganDto.nama_petugas,
             foto_pemasangan_meter: fotoPemasanganPath,
@@ -282,7 +318,7 @@ export class ReportsService {
     });
 
     if (!report) {
-      throw new BadRequestException('Laporan tidak ditemukan');
+      throw new NotFoundException(`Laporan dengan ID ${id} tidak ditemukan`); 
     }
 
     return report;
@@ -290,8 +326,6 @@ export class ReportsService {
 
   async remove(id: string) {
     const report = await this.findOne(id);
-
-    // Delete associated files
     const fileDeletionResults = await Promise.all([
       this.storageService.deleteFile(report.foto_rumah),
       this.storageService.deleteFile(report.foto_meter_rusak),
