@@ -49,10 +49,17 @@ async function main() {
   }
 
   // Create 5 laporan yantek for each PETUGAS_YANTEK
+  let yantekCounter = 1;
+  let penyambunganCounter = 1;
+  const currentYearMonth = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
   for (const user of yantekUsers) {
     for (let i = 1; i <= 5; i++) {
+      // Generate a simple predictable ID for seeding
+      const yantekId = `YT${currentYearMonth}${String(yantekCounter++).padStart(4, '0')}`; 
       const laporanYantek = await prisma.laporanYantek.create({
         data: {
+          id: yantekId, // Provide the generated ID
           ID_Pelanggan: `PLG-${user.name}-${i}`,
           nomor_meter: `MTR-${Math.random().toString(36).substring(2, 10)}`,
           tipe_meter: i % 2 === 0 ? TipeMeter.PASCA_BAYAR : TipeMeter.PRA_BAYAR,
@@ -69,8 +76,11 @@ async function main() {
       });
 
       // Create corresponding laporan penyambungan
+      // Generate a simple predictable ID for seeding
+      const penyambunganId = `PS${currentYearMonth}${String(penyambunganCounter++).padStart(4, '0')}`; 
       await prisma.laporanPenyambungan.create({
         data: {
+          id: penyambunganId, // Provide the generated ID
           laporan_yante_id: laporanYantek.id,
           foto_pemasangan_meter: `pemasangan-${i}.jpg`,
           foto_rumah_pelanggan: `rumah-pelanggan-${i}.jpg`,
