@@ -49,8 +49,8 @@ model User {
 }
 
 model LaporanYantek {
-  id                      String       @id @default(cuid())
-  ID_Pelanggan            String       @unique
+  id                      String       @id@unique
+  ID_Pelanggan            String      
   nomor_meter             String
   tipe_meter              TipeMeter
   no_telepon_pelanggan    String
@@ -63,12 +63,13 @@ model LaporanYantek {
   titik_koordinat         String
   status_laporan          StatusLaporan @default(BARU)
   createdAt               DateTime     @default(now())
-  
+
+  @@index([id])
   laporan_penyambungan    LaporanPenyambungan?
 }
 
 model LaporanPenyambungan {
-  id                      String       @id @default(cuid())
+  id                      String       @id 
   laporan_yante_id        String       @unique
   foto_pemasangan_meter   String
   foto_rumah_pelanggan    String
@@ -77,5 +78,6 @@ model LaporanPenyambungan {
   status_laporan          StatusLaporan @default(SELESAI)
   createdAt               DateTime     @default(now())
   
+  @@index([id])
   laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id])
 }
