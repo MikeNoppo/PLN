@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client'; // Import Prisma namespace
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { ExportFilterDto } from './dto/export-filter.dto';
@@ -30,15 +31,21 @@ export class ReportsService {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const prefix = `${type}${year}${month}`;
-    
-    // Optimasi query dengan index
-    const lastReport = await this.prisma.$queryRaw<Array<{ id: string }>>`
+    const startRange = prefix + '0000';
+    const endRange = prefix + '9999';
+
+    const tableName = type === 'YT' ? "LaporanYantek" : "LaporanPenyambungan";
+
+    const query = Prisma.sql`
       SELECT id 
-      FROM "${type === 'YT' ? 'LaporanYantek' : 'LaporanPenyambungan'}"
-      WHERE id >= ${prefix + '0000'}
-        AND id <= ${prefix + '9999'}
+      FROM "${Prisma.raw(tableName)}"
+      WHERE id >= ${startRange}
+        AND id <= ${endRange}
       ORDER BY id DESC 
       LIMIT 1`;
+      
+    // Execute the raw query
+    const lastReport = await this.prisma.$queryRaw<Array<{ id: string }>>(query);
 
     let sequence = 1;
     if (lastReport.length > 0) {
