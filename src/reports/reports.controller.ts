@@ -78,6 +78,15 @@ export class ReportsController {
     return this.reportsService.createPenyambungan(createPenyambunganDto, files);
   }
 
+  // --- Dashboard Endpoint ---
+  @SkipThrottle()
+  @Roles(UserRole.ADMIN)
+  @Get('summary')
+  getSummary() {
+    return this.reportsService.getSummary();
+  }
+  
+
   // --- Existing GET/DELETE Endpoints ---
   @SkipThrottle()
   @Get()
