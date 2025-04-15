@@ -30,7 +30,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 // Define an interface for the expected user payload in the request
 interface AuthenticatedRequest extends Request {
-  user?: { id: string; [key: string]: any }; // Adjust based on your JWT payload structure
+  user?: { id: string; [key: string]: any };
 }
 
 @Controller('reports')

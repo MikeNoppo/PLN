@@ -43,12 +43,18 @@ export class ActivityLogsService {
         timestamp: 'desc', // Newest first
       },
       take: limit, // Apply the limit
-      // Optionally include related data if needed for display
-      // include: {
-      //   relatedUser: { select: { id: true, name: true } },
-      //   relatedYantekReport: { select: { id: true } },
-      //   relatedPenyambunganReport: { select: { id: true } },
-      // }
+      include: { // Include related user data
+        relatedUser: {
+          select: {
+            id: true,
+            name: true, // Select the user's name
+            // username: true, // Optionally include username if needed
+          },
+        },
+        // Keep other includes commented out unless needed
+        // relatedYantekReport: { select: { id: true } },
+        // relatedPenyambunganReport: { select: { id: true } },
+      },
     });
 
     return logs;
