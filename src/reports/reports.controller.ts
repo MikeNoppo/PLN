@@ -115,8 +115,9 @@ export class ReportsController {
   @SkipThrottle()
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
-    return this.reportsService.remove(id);
+  remove(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    const userId = req.user?.id;
+    return this.reportsService.remove(id, userId);
   }
 
   // --- Export Endpoint ---
@@ -132,7 +133,7 @@ export class ReportsController {
 
   // --- Update Status Endpoint ---
   @Patch(':id/status')
-  @Roles(UserRole.ADMIN) 
+  @Roles(UserRole.ADMIN)
   async updateStatus(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,

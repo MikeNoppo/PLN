@@ -361,16 +361,22 @@ export class ReportsService {
   }
 
   async remove(id: string, userId?: string) {
+    this.logger.log(`Attempting to remove report ${id}, initiated by userId: ${userId}`); // Log entry point
     const report = await this.findOne(id);
 
     // *** Create Activity Log BEFORE deleting ***
-    if (userId) { // Only log if user is known
+    if (userId) { 
+        this.logger.log(`User ID ${userId} provided, proceeding to create delete log for report ${id}.`);
         await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_DELETED,
             relatedYantekReportId: id,
             relatedUserId: userId,
             message: `Laporan Yantek [${id}] dihapus.`,
-        }).catch(logError => { this.logger.error(`Failed log deletion for ${id}:`, logError); });
+        }).catch(logError => { 
+            this.logger.error(`Failed log deletion for report ${id}:`, logError); 
+        });
+    } else {
+        this.logger.warn(`Skipping delete activity log for report ${id} because userId was undefined or null.`);
     }
 
     // Delete associated files
@@ -404,13 +410,14 @@ export class ReportsService {
         });
       });
 
+      this.logger.log(`Successfully deleted report ${id}.`);
       return {
         status: 200,
         message: 'Laporan berhasil dihapus',
         data: { id: deletedReport.id }, // Return only ID or necessary confirmation
       };
     } catch (error) {
-      this.logger.error(`Error deleting report ${id}:`, error);
+      this.logger.error(`Error during database deletion for report ${id}:`, error);
       throw new InternalServerErrorException('Gagal menghapus laporan.');
     }
   }
