@@ -360,8 +360,20 @@ export class ReportsService {
     return report;
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId?: string) {
     const report = await this.findOne(id);
+
+    // *** Create Activity Log BEFORE deleting ***
+    if (userId) { // Only log if user is known
+        await this.activityLogsService.createLog({
+            activityType: ActivityType.REPORT_DELETED,
+            relatedYantekReportId: id,
+            relatedUserId: userId,
+            message: `Laporan Yantek [${id}] dihapus.`,
+        }).catch(logError => { this.logger.error(`Failed log deletion for ${id}:`, logError); });
+    }
+
+    // Delete associated files
     const fileDeletionResults = await Promise.all([
       this.storageService.deleteFile(report.foto_rumah),
       this.storageService.deleteFile(report.foto_meter_rusak),
@@ -372,12 +384,14 @@ export class ReportsService {
     fileDeletionResults.forEach((result, index) => {
       if (result.error) {
         const fileType = ['foto_rumah', 'foto_meter_rusak', 'foto_ba_gangguan'][index];
-        this.logger.warn(`Issue deleting ${fileType}: ${result.error}`);
+        this.logger.warn(`Issue deleting ${fileType} for report ${id}: ${result.error}`);
       }
     });
 
     try {
-      // Use transaction to ensure both deletions succeed or fail together
+      // Use transaction to ensure related data deletion happens together
+      // Note: ActivityLog deletion related to this report is handled by `onDelete: Cascade` in schema
+      //       LaporanPenyambungan deletion is handled below
       const deletedReport = await this.prisma.$transaction(async (prisma) => {
         // First delete the related LaporanPenyambungan if it exists
         await prisma.laporanPenyambungan.deleteMany({
@@ -393,11 +407,11 @@ export class ReportsService {
       return {
         status: 200,
         message: 'Laporan berhasil dihapus',
-        data: deletedReport,
+        data: { id: deletedReport.id }, // Return only ID or necessary confirmation
       };
     } catch (error) {
-      this.logger.error('Error deleting report:', error);
-      throw new InternalServerErrorException('Gagal menghapus laporan');
+      this.logger.error(`Error deleting report ${id}:`, error);
+      throw new InternalServerErrorException('Gagal menghapus laporan.');
     }
   }
 
@@ -578,33 +592,57 @@ export class ReportsService {
       throw new NotFoundException(`Laporan Yantek dengan ID ${id} tidak ditemukan.`);
     }
 
-    // Prevent logging completion again if already completed via penyambungan
-    const shouldLogCompletion = dto.status_laporan === StatusLaporan.SELESAI && report.status_laporan !== StatusLaporan.SELESAI;
+    const previousStatus = report.status_laporan;
+    const newStatus = dto.status_laporan;
+
+    // Prevent unnecessary updates or logging if status hasn't changed
+    if (previousStatus === newStatus) {
+      return {
+        status: 200, // OK, but no change
+        message: 'Status laporan tidak berubah.',
+        data: report, // Return the existing report data
+      };
+    }
+
+    const shouldLogCompletion = newStatus === StatusLaporan.SELESAI && previousStatus !== StatusLaporan.SELESAI;
+    const shouldLogProcessing = newStatus === StatusLaporan.DIPROSES && previousStatus !== StatusLaporan.DIPROSES;
 
     try {
       const updatedReport = await this.prisma.laporanYantek.update({
         where: { id },
-        data: {
-          status_laporan: dto.status_laporan,
-        },
+        data: { status_laporan: newStatus },
       });
 
-      // *** Create Activity Log for Completion (if applicable) ***
-      if (shouldLogCompletion && userId) {
-         await this.activityLogsService.createLog({
-          activityType: ActivityType.REPORT_COMPLETED,
-          relatedYantekReportId: id,
-          relatedUserId: userId,
-          message: `Laporan [${id}] status diubah menjadi SELESAI secara manual.`,
-        }).catch(logError => {
-          this.logger.error(`Failed to create activity log for manual completion ${id}:`, logError);
-        });
+      // Log based on status transition
+      if (userId) { // Only log if user is known
+        if (shouldLogCompletion) {
+          await this.activityLogsService.createLog({
+            activityType: ActivityType.REPORT_COMPLETED,
+            relatedYantekReportId: id,
+            relatedUserId: userId,
+            message: `Laporan [${id}] status diubah menjadi SELESAI (dari ${previousStatus}).`,
+          }).catch(logError => { this.logger.error(`Failed log completion for ${id}:`, logError); });
+        } else if (shouldLogProcessing) {
+          await this.activityLogsService.createLog({
+            activityType: ActivityType.REPORT_PROCESSED, // Use the correct enum value
+            relatedYantekReportId: id,
+            relatedUserId: userId,
+            message: `Laporan [${id}] status diubah menjadi DIPROSES (dari ${previousStatus}).`,
+          }).catch(logError => { this.logger.error(`Failed log processing for ${id}:`, logError); });
+        }
+        // Optionally log other status changes here as REPORT_UPDATED
+        // else if (newStatus !== StatusLaporan.BARU) { // Example: Log any change except back to BARU
+        //   await this.activityLogsService.createLog({
+        //     activityType: ActivityType.REPORT_UPDATED,
+        //     relatedYantekReportId: id,
+        //     relatedUserId: userId,
+        //     message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
+        //   }).catch(logError => { this.logger.error(`Failed log status update for ${id}:`, logError); });
+        // }
       }
 
-      // TODO: Consider logging other status changes (REPORT_UPDATED, REPORT_PROCESSED) if needed
-
       return {
-        status: 201, // Should probably be 200 OK for update
+        status: 200, // Use 200 OK for successful updates
         message: 'Status laporan berhasil diperbarui',
         data: updatedReport,
       };

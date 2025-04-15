@@ -31,6 +31,8 @@ export class ActivityLogsService {
     const relevantTypes = [
       ActivityType.REPORT_CREATED,
       ActivityType.REPORT_COMPLETED,
+      ActivityType.REPORT_PROCESSED,
+      ActivityType.REPORT_DELETED,
     ];
 
     const logs = await this.prisma.activityLog.findMany({
