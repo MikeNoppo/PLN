@@ -12,6 +12,7 @@ import {
   Query, 
   Res, 
   StreamableFile, 
+  Req,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service';
@@ -23,9 +24,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
 import { UserRole } from '@prisma/client';
-import { Response } from 'express'; 
+import { Response, Request } from 'express'; 
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+
+// Define an interface for the expected user payload in the request
+interface AuthenticatedRequest extends Request {
+  user?: { id: string; [key: string]: any }; // Adjust based on your JWT payload structure
+}
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -43,6 +49,7 @@ export class ReportsController {
     ])
   )
   async create(
+    @Req() req: AuthenticatedRequest,
     @Body() createReportDto: CreateReportDto,
     @UploadedFiles()
     files: {
@@ -51,8 +58,9 @@ export class ReportsController {
       foto_ba_gangguan?: Express.Multer.File[];
     },
   ) {
+    const userId = req.user?.id;
     this.reportsService.validateAndProcessYantekFiles(files);
-    return this.reportsService.createYantek(createReportDto, files);
+    return this.reportsService.createYantek(createReportDto, files, userId);
   }
 
   // --- Endpoint for Penyambungan Report ---
@@ -66,6 +74,7 @@ export class ReportsController {
     ]),
   )
   async createPenyambungan(
+    @Req() req: AuthenticatedRequest,
     @Body() createPenyambunganDto: CreatePenyambunganDto,
     @UploadedFiles()
     files: {
@@ -74,8 +83,9 @@ export class ReportsController {
       foto_ba_pemasangan?: Express.Multer.File[];
     },
   ) {
+    const userId = req.user?.id;
     this.reportsService.validateAndProcessPenyambunganFiles(files);
-    return this.reportsService.createPenyambungan(createPenyambunganDto, files);
+    return this.reportsService.createPenyambungan(createPenyambunganDto, files, userId);
   }
 
   // --- Dashboard Endpoint ---
@@ -124,9 +134,11 @@ export class ReportsController {
   @Patch(':id/status')
   @Roles(UserRole.ADMIN) 
   async updateStatus(
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() updateReportStatusDto: UpdateReportStatusDto,
   ) {
-    return this.reportsService.updateStatus(id, updateReportStatusDto);
+    const userId = req.user?.id;
+    return this.reportsService.updateStatus(id, updateReportStatusDto, userId);
   }
 }

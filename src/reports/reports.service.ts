@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client'; // Import Prisma namespace
+import { Prisma, ActivityType } from '@prisma/client'; 
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { ExportFilterDto } from './dto/export-filter.dto';
@@ -14,6 +14,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { FileValidator } from '../utils/file-validator.util';
 import { StreamableFile } from '@nestjs/common';
 import { Response } from 'express';
+import { ActivityLogsService } from '../activity-logs/activity-logs.service'; 
 
 @Injectable()
 export class ReportsService {
@@ -24,6 +25,7 @@ export class ReportsService {
     private readonly storageService: StorageService,
     private readonly imageService: ImageService,
     private readonly configService: ConfigService,
+    private readonly activityLogsService: ActivityLogsService, 
   ) {}
 
   private async generateLaporanId(type: 'YT' | 'PS'): Promise<string> {
@@ -138,7 +140,8 @@ export class ReportsService {
       foto_rumah?: Express.Multer.File[],
       foto_meter_rusak?: Express.Multer.File[],
       foto_ba_gangguan?: Express.Multer.File[]
-    }
+    },
+    userId?: string,
   ) {
     const id = await this.getNextId('YT');
 
@@ -161,6 +164,18 @@ export class ReportsService {
           status_laporan: StatusLaporan.BARU,
         },
       });
+
+      // *** Create Activity Log ***
+      if (userId) {
+        await this.activityLogsService.createLog({
+          activityType: ActivityType.REPORT_CREATED,
+          relatedYantekReportId: report.id,
+          relatedUserId: userId,
+          message: `Laporan Yantek baru [${report.id}] dibuat.`,
+        }).catch(logError => {
+          this.logger.error(`Failed to create activity log for Yantek creation ${report.id}:`, logError);
+        });
+      }
 
       return {
         status: 201,
@@ -195,7 +210,8 @@ export class ReportsService {
       foto_pemasangan_meter?: Express.Multer.File[];
       foto_rumah_pelanggan?: Express.Multer.File[];
       foto_ba_pemasangan?: Express.Multer.File[];
-    }
+    },
+    userId?: string,
   ) {
     const laporanYantek = await this.prisma.laporanYantek.findUnique({
       where: { id: createPenyambunganDto.laporan_yante_id },
@@ -252,6 +268,19 @@ export class ReportsService {
           where: { id: createPenyambunganDto.laporan_yante_id },
           data: { status_laporan: StatusLaporan.SELESAI },
         });
+
+        // *** Create Activity Log for Completion ***
+        if (userId) {
+          await this.activityLogsService.createLog({
+            activityType: ActivityType.REPORT_COMPLETED,
+            relatedYantekReportId: createPenyambunganDto.laporan_yante_id,
+            relatedPenyambunganReportId: laporanPenyambungan.id,
+            relatedUserId: userId,
+            message: `Laporan [${createPenyambunganDto.laporan_yante_id}] diselesaikan via penyambungan [${laporanPenyambungan.id}].`,
+          }).catch(logError => {
+            this.logger.error(`Failed to create activity log for Penyambungan completion ${laporanPenyambungan.id}:`, logError);
+          });
+        }
 
         return laporanPenyambungan;
       });
@@ -540,8 +569,7 @@ export class ReportsService {
 
   // --- Update Status Functionality ---
 
-  async updateStatus(id: string, dto: UpdateReportStatusDto): Promise<any> { // Consider returning the updated report type
-    // 1. Find the report first to ensure it exists
+  async updateStatus(id: string, dto: UpdateReportStatusDto, userId?: string): Promise<any> {
     const report = await this.prisma.laporanYantek.findUnique({
       where: { id },
     });
@@ -550,7 +578,9 @@ export class ReportsService {
       throw new NotFoundException(`Laporan Yantek dengan ID ${id} tidak ditemukan.`);
     }
 
-    // 2. Update the status
+    // Prevent logging completion again if already completed via penyambungan
+    const shouldLogCompletion = dto.status_laporan === StatusLaporan.SELESAI && report.status_laporan !== StatusLaporan.SELESAI;
+
     try {
       const updatedReport = await this.prisma.laporanYantek.update({
         where: { id },
@@ -558,8 +588,23 @@ export class ReportsService {
           status_laporan: dto.status_laporan,
         },
       });
+
+      // *** Create Activity Log for Completion (if applicable) ***
+      if (shouldLogCompletion && userId) {
+         await this.activityLogsService.createLog({
+          activityType: ActivityType.REPORT_COMPLETED,
+          relatedYantekReportId: id,
+          relatedUserId: userId,
+          message: `Laporan [${id}] status diubah menjadi SELESAI secara manual.`,
+        }).catch(logError => {
+          this.logger.error(`Failed to create activity log for manual completion ${id}:`, logError);
+        });
+      }
+
+      // TODO: Consider logging other status changes (REPORT_UPDATED, REPORT_PROCESSED) if needed
+
       return {
-        status: 201,
+        status: 201, // Should probably be 200 OK for update
         message: 'Status laporan berhasil diperbarui',
         data: updatedReport,
       };

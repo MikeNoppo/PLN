@@ -6,6 +6,7 @@ import { StorageService } from './services/storage.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
+import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
       }),
       inject: [ConfigService],
     }),
+    ActivityLogsModule,
   ],
   controllers: [ReportsController],
   providers: [ReportsService, ImageService, StorageService],

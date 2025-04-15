@@ -27,11 +27,19 @@ enum UserRole {
   PETUGAS_PENYAMBUNGAN
 }
 
+enum ActivityType {
+  REPORT_CREATED
+  REPORT_UPDATED
+  REPORT_DELETED
+  REPORT_COMPLETED
+  REPORT_PROCESSED
+}
+
 model Token {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
@@ -45,6 +53,7 @@ model User {
   role       UserRole
   lastOnline DateTime?
 
+  relatedActivityLogs ActivityLog[]
   tokens     Token[]
 }
 
@@ -66,6 +75,7 @@ model LaporanYantek {
 
   @@index([id])
   laporan_penyambungan    LaporanPenyambungan?
+  activityLogs ActivityLog[] @relation("YantekLogs")
 }
 
 model LaporanPenyambungan {
@@ -79,5 +89,27 @@ model LaporanPenyambungan {
   createdAt               DateTime     @default(now())
   
   @@index([id])
-  laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id])
+  laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id], onDelete: Cascade)
+  activityLogs ActivityLog[] @relation("PenyambunganLogs")
+}
+
+model ActivityLog {
+  id                      String        @id @default(cuid())
+  activityType            ActivityType
+  timestamp               DateTime      @default(now())
+  message                 String?
+
+  relatedYantekReportId   String?
+  relatedYantekReport     LaporanYantek? @relation("YantekLogs", fields: [relatedYantekReportId], references: [id], onDelete: Cascade)
+
+  relatedPenyambunganReportId String?
+  relatedPenyambunganReport LaporanPenyambungan? @relation("PenyambunganLogs", fields: [relatedPenyambunganReportId], references: [id], onDelete: Cascade)
+
+  relatedUserId           String?
+  relatedUser             User?         @relation(fields: [relatedUserId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp])
+  @@index([relatedYantekReportId])
+  @@index([relatedPenyambunganReportId])
+  @@index([relatedUserId])
 }
