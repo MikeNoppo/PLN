@@ -34,4 +34,8 @@ export class CreateReportDto {
   @IsString()
   @IsNotEmpty()
   titik_koordinat: string;
+
+  @IsString()
+  @IsOptional()
+  keterangan?: string;
 }

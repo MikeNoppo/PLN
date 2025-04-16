@@ -71,6 +71,7 @@ model LaporanYantek {
   foto_ba_gangguan        String
   titik_koordinat         String
   status_laporan          StatusLaporan @default(BARU)
+  keterangan              String?
   createdAt               DateTime     @default(now())
 
   @@index([id])
