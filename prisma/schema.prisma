@@ -101,10 +101,10 @@ model ActivityLog {
   message                 String?
 
   relatedYantekReportId   String?
-  relatedYantekReport     LaporanYantek? @relation("YantekLogs", fields: [relatedYantekReportId], references: [id], onDelete: Cascade)
+  relatedYantekReport     LaporanYantek? @relation("YantekLogs", fields: [relatedYantekReportId], references: [id], onDelete: SetNull)
 
   relatedPenyambunganReportId String?
-  relatedPenyambunganReport LaporanPenyambungan? @relation("PenyambunganLogs", fields: [relatedPenyambunganReportId], references: [id], onDelete: Cascade)
+  relatedPenyambunganReport LaporanPenyambungan? @relation("PenyambunganLogs", fields: [relatedPenyambunganReportId], references: [id], onDelete: SetNull)
 
   relatedUserId           String?
   relatedUser             User?         @relation(fields: [relatedUserId], references: [id], onDelete: SetNull)
