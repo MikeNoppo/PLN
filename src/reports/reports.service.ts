@@ -613,6 +613,8 @@ export class ReportsService {
 
     const shouldLogCompletion = newStatus === StatusLaporan.SELESAI && previousStatus !== StatusLaporan.SELESAI;
     const shouldLogProcessing = newStatus === StatusLaporan.DIPROSES && previousStatus !== StatusLaporan.DIPROSES;
+    // Determine if a generic update log should be created
+    const shouldLogGenericUpdate = !shouldLogCompletion && !shouldLogProcessing;
 
     try {
       const updatedReport = await this.prisma.laporanYantek.update({
@@ -636,16 +638,14 @@ export class ReportsService {
             relatedUserId: userId,
             message: `Laporan [${id}] status diubah menjadi DIPROSES (dari ${previousStatus}).`,
           }).catch(logError => { this.logger.error(`Failed log processing for ${id}:`, logError); });
+        } else if (shouldLogGenericUpdate) { // Log other status changes as REPORT_UPDATED
+          await this.activityLogsService.createLog({
+            activityType: ActivityType.REPORT_UPDATED, // Use the generic update type
+            relatedYantekReportId: id,
+            relatedUserId: userId,
+            message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
+          }).catch(logError => { this.logger.error(`Failed log status update for ${id}:`, logError); });
         }
-        // Optionally log other status changes here as REPORT_UPDATED
-        // else if (newStatus !== StatusLaporan.BARU) { // Example: Log any change except back to BARU
-        //   await this.activityLogsService.createLog({
-        //     activityType: ActivityType.REPORT_UPDATED,
-        //     relatedYantekReportId: id,
-        //     relatedUserId: userId,
-        //     message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
-        //   }).catch(logError => { this.logger.error(`Failed log status update for ${id}:`, logError); });
-        // }
       }
 
       return {
@@ -654,6 +654,7 @@ export class ReportsService {
         data: updatedReport,
       };
     } catch (error) {
+      this.logger.error(`Error updating status for report ${id}:`, error); // Added error logging
       throw new InternalServerErrorException('Gagal memperbarui status laporan.');
     }
   }
