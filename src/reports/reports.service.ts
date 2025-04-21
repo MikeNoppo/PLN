@@ -1,20 +1,16 @@
 import { Injectable, BadRequestException, NotFoundException, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma, ActivityType } from '@prisma/client'; 
+import { Prisma, ActivityType } from '@prisma/client';
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
-import { ExportFilterDto } from './dto/export-filter.dto';
 import { ImageService } from './services/image.service';
 import { StorageService } from './services/storage.service';
 import { StatusLaporan, TipeMeter } from '@prisma/client';
-import * as ExcelJS from 'exceljs';
 import { ConfigService } from '@nestjs/config';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { FileValidator } from '../utils/file-validator.util';
-import { StreamableFile } from '@nestjs/common';
-import { Response } from 'express';
-import { ActivityLogsService } from '../activity-logs/activity-logs.service'; 
+import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 
 @Injectable()
 export class ReportsService {
@@ -25,7 +21,7 @@ export class ReportsService {
     private readonly storageService: StorageService,
     private readonly imageService: ImageService,
     private readonly configService: ConfigService,
-    private readonly activityLogsService: ActivityLogsService, 
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
   private async generateLaporanId(type: 'YT' | 'PS'): Promise<string> {
@@ -119,19 +115,6 @@ export class ReportsService {
     ];
 
     FileValidator.validateImageFiles(allFiles);
-  }
-
-  prepareExcelResponse(buffer: Buffer, res: Response): StreamableFile {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `Laporan_PLN_${timestamp}.xlsx`;
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-
-    return new StreamableFile(buffer);
   }
 
   async createYantek(
@@ -422,174 +405,6 @@ export class ReportsService {
     }
   }
 
-  // --- Export Functionality ---
-
-  async exportReportsToExcel(filterDto: ExportFilterDto): Promise<Buffer> {
-    const { year, month, tipe_meter, petugas_yantek_id } = filterDto;
-
-    const whereClause: any = {}; // Use 'any' for dynamic where clause building
-
-    if (tipe_meter) {
-      whereClause.tipe_meter = tipe_meter;
-    }
-    if (petugas_yantek_id) {
-      // Assuming nama_petugas is stored directly in LaporanYantek based on schema
-      // If it was an ID relation, you'd filter by that relation's ID
-      whereClause.nama_petugas = { contains: petugas_yantek_id, mode: 'insensitive' };
-    }
-
-    if (year) {
-      const startDate = new Date(year, month ? month - 1 : 0, 1); // Month is 0-indexed
-      const endDate = new Date(year, month ? month : 12, 0); // Get last day of month/year
-      
-      whereClause.createdAt = {
-        gte: startDate,
-        lte: endDate,
-      };
-    } else if (month) {
-        // Handle month filter without year? Might need clarification or ignore.
-        // For now, assuming month filter only works with year filter.
-        console.warn("Month filter provided without year filter, ignoring month filter.");
-    }
-
-
-    // 2. Fetch Data
-    const reports = await this.prisma.laporanYantek.findMany({
-      where: whereClause,
-      include: {
-        laporan_penyambungan: {
-          select: {
-            createdAt: true,
-            nama_petugas: true,
-            foto_pemasangan_meter: true,
-            foto_rumah_pelanggan: true,
-            foto_ba_pemasangan: true,
-          },
-        },
-        // No need to include petugasYantek if name is directly on LaporanYantek
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
-    if (reports.length === 0) {
-      throw new NotFoundException('Tidak ada data laporan yang ditemukan sesuai filter.');
-    }
-
-    // 3. Generate Excel
-    try {
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Laporan PLN');
-
-      // --- Template (Optional - Basic Title) ---
-      worksheet.mergeCells('A1:M1'); // Merge across all expected columns
-      worksheet.getCell('A1').value = 'Laporan Yantek dan Penyambungan';
-      worksheet.getCell('A1').font = { size: 16, bold: true };
-      worksheet.getCell('A1').alignment = { horizontal: 'center' };
-      worksheet.addRow([]); // Add empty row for spacing
-
-      // --- Header Row ---
-      const headerRow = worksheet.addRow([
-        'No', 'IDPEL', 'Nomor Meter', 'Tgl Lap. Yantek', 'Tgl Lap. Penyambungan',
-        'Petugas Yantek', 'Petugas Penyambungan', 'Foto Rumah', 'Foto Meter Rusak',
-        'Foto BA Gangguan', 'Foto Pasang Meter', 'Foto Rumah Pelanggan', 'Foto BA Pasang',
-        'Status Laporan'
-      ]);
-
-      headerRow.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFD3D3D3' }, // Light grey
-        };
-        cell.border = {
-          top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
-        };
-        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-      });
-
-      // --- Data Rows ---
-      const baseUrl = this.configService.get('APP_URL'); // Get base URL or default
-
-      reports.forEach((report, index) => {
-        const penyambungan = report.laporan_penyambungan;
-
-        // Helper to create hyperlink
-        const createHyperlink = (relativePath: string | null | undefined) => {
-          if (!relativePath) return '-';
-          // Basic check if it's already a full URL (less likely from our storage)
-          if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
-             return { text: 'Lihat Foto', hyperlink: relativePath };
-          }
-          // Construct full URL - ensure no double slashes if baseUrl ends with / and relativePath starts with /
-          const fullUrl = `${baseUrl.replace(/\/$/, '')}/uploads/reports/${relativePath.replace(/^\//, '')}`;
-          return { text: 'Lihat Foto', hyperlink: fullUrl };
-        };
-
-        const formatDate = (date: Date | null | undefined) => {
-            if (!date) return '-';
-            // Simple YYYY-MM-DD format
-            return date.toISOString().split('T')[0];
-        }
-
-        const row = worksheet.addRow([
-          index + 1,
-          report.ID_Pelanggan,
-          report.nomor_meter,
-          formatDate(report.createdAt),
-          formatDate(penyambungan?.createdAt),
-          report.nama_petugas || '-', 
-          penyambungan?.nama_petugas || '-',
-          createHyperlink(report.foto_rumah),
-          createHyperlink(report.foto_meter_rusak),
-          createHyperlink(report.foto_ba_gangguan),
-          createHyperlink(penyambungan?.foto_pemasangan_meter),
-          createHyperlink(penyambungan?.foto_rumah_pelanggan),
-          createHyperlink(penyambungan?.foto_ba_pemasangan),
-          report.status_laporan,
-        ]);
-
-        row.eachCell((cell) => {
-            cell.border = {
-                top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
-            };
-            cell.alignment = { vertical: 'top', horizontal: 'left' }; // Align data left/top
-        });
-        // Specific alignment for No column
-        row.getCell(1).alignment = { vertical: 'top', horizontal: 'center' };
-      });
-
-      // --- Column Widths ---
-      worksheet.columns = [
-        { key: 'no', width: 5 },
-        { key: 'idpel', width: 15 },
-        { key: 'nomorMeter', width: 15 },
-        { key: 'tglYantek', width: 15 },
-        { key: 'tglPenyambungan', width: 15 },
-        { key: 'petugasYantek', width: 20 },
-        { key: 'petugasPenyambungan', width: 20 },
-        { key: 'fotoRumah', width: 15 },
-        { key: 'fotoMeterRusak', width: 15 },
-        { key: 'fotoBaGangguan', width: 15 },
-        { key: 'fotoPasangMeter', width: 15 },
-        { key: 'fotoRumahPelanggan', width: 15 },
-        { key: 'fotoBaPasang', width: 15 },
-        { key: 'status', width: 15 },
-      ];
-
-      // 4. Generate Buffer
-      return await workbook.xlsx.writeBuffer() as Buffer;
-
-    } catch (error) {
-      console.error('Error generating Excel file:', error);
-      throw new InternalServerErrorException('Gagal membuat file Excel.');
-    }
-  }
-
-  // --- Update Status Functionality ---
-
   async updateStatus(id: string, dto: UpdateReportStatusDto, userId?: string): Promise<any> {
     const report = await this.prisma.laporanYantek.findUnique({
       where: { id },
@@ -656,71 +471,6 @@ export class ReportsService {
     } catch (error) {
       this.logger.error(`Error updating status for report ${id}:`, error); // Added error logging
       throw new InternalServerErrorException('Gagal memperbarui status laporan.');
-    }
-  }
-
-  // --- Dashboard Summary Functionality ---
-
-  async getSummary() {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-indexed
-
-    // Get start and end of current month
-    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
-    const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
-
-    // Get start and end of previous month
-    const startOfPreviousMonth = new Date(currentYear, currentMonth - 1, 1);
-    const endOfPreviousMonth = startOfCurrentMonth; // End of previous month is start of current month
-
-    try {
-      const [countBaru, countDiproses, countSelesai, totalBulanIni, totalBulanLalu] = await this.prisma.$transaction([
-        this.prisma.laporanYantek.count({
-          where: { status_laporan: StatusLaporan.BARU },
-        }),
-        this.prisma.laporanYantek.count({
-          where: { status_laporan: StatusLaporan.DIPROSES },
-        }),
-        this.prisma.laporanYantek.count({
-          where: { status_laporan: StatusLaporan.SELESAI },
-        }),
-        this.prisma.laporanYantek.count({
-          where: {
-            createdAt: {
-              gte: startOfCurrentMonth,
-              lt: startOfNextMonth, // Use 'lt' (less than) start of next month
-            },
-          },
-        }),
-        this.prisma.laporanYantek.count({
-          where: {
-            createdAt: {
-              gte: startOfPreviousMonth,
-              lt: endOfPreviousMonth, // Use 'lt' (less than) start of current month
-            },
-          },
-        }),
-      ]);
-
-      return {
-        status: 200,
-        message: 'Ringkasan laporan berhasil diambil',
-        data: {
-          statusCounts: {
-            baru: countBaru,
-            diproses: countDiproses,
-            selesai: countSelesai,
-          },
-          monthlyReportTotals: {
-            currentMonth: totalBulanIni,
-            previousMonth: totalBulanLalu,
-          }
-        }
-      };
-    } catch (error) {
-      this.logger.error('Error fetching report summary:', error);
-      throw new InternalServerErrorException('Gagal mengambil ringkasan laporan.');
     }
   }
 }

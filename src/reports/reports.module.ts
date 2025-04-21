@@ -7,6 +7,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
+import { ReportExportService } from './services/report-export.service';
+import { ReportSummaryService } from './services/report-summary.service';
 
 @Module({
   imports: [
@@ -14,7 +16,7 @@ import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
     MulterModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
         limits: {
-          fileSize: configService.get('MAX_FILE_SIZE')*1024 * 1024, // Convert MB to bytes
+          fileSize: configService.get<number>('MAX_FILE_SIZE', 5) * 1024 * 1024, 
         },
       }),
       inject: [ConfigService],
@@ -22,6 +24,17 @@ import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
     ActivityLogsModule,
   ],
   controllers: [ReportsController],
-  providers: [ReportsService, ImageService, StorageService],
+  providers: [
+    ReportsService,
+    ImageService,
+    StorageService,
+    ReportExportService,
+    ReportSummaryService,
+  ],
+  exports: [
+    ReportsService,
+    ReportExportService,
+    ReportSummaryService,
+  ],
 })
 export class ReportsModule {}
