@@ -9,13 +9,15 @@ import {
   UploadedFiles,
   Body,
   UseGuards,
-  Query, 
-  Res, 
-  StreamableFile, 
+  Query,
+  Res,
+  StreamableFile,
   Req,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { ReportsService } from './reports.service';
+import { ReportsService } from './reports.service'; 
+import { ReportExportService } from './services/report-export.service'; 
+import { ReportSummaryService } from './services/report-summary.service'; 
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { ExportFilterDto } from './dto/export-filter.dto';
@@ -24,7 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
 import { UserRole } from '@prisma/client';
-import { Response, Request } from 'express'; 
+import { Response, Request } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
@@ -36,7 +38,11 @@ interface AuthenticatedRequest extends Request {
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService, 
+    private readonly reportExportService: ReportExportService, 
+    private readonly reportSummaryService: ReportSummaryService, 
+  ) {}
 
   // --- Endpoint for Yantek Report ---
   @Post('yantek')
@@ -93,7 +99,7 @@ export class ReportsController {
   @Roles(UserRole.ADMIN)
   @Get('summary')
   getSummary() {
-    return this.reportsService.getSummary();
+    return this.reportSummaryService.getSummary();
   }
   
 
@@ -127,8 +133,8 @@ export class ReportsController {
     @Query() filterDto: ExportFilterDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const buffer = await this.reportsService.exportReportsToExcel(filterDto);
-    return this.reportsService.prepareExcelResponse(buffer, res);
+    const buffer = await this.reportExportService.exportReportsToExcel(filterDto);
+    return this.reportExportService.prepareExcelResponse(buffer, res);
   }
 
   // --- Update Status Endpoint ---
