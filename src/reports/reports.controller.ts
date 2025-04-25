@@ -22,6 +22,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { ExportFilterDto } from './dto/export-filter.dto';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
+import { PeriodType, PerformanceFilterDto } from './dto/performance-filter.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorators';
@@ -109,6 +110,12 @@ export class ReportsController {
     return this.reportSummaryService.getDashboardStats();
   }
   
+  @SkipThrottle()
+  @Get('performance-stats')
+  @Roles(UserRole.ADMIN)
+  getPerformanceStats(@Query() filterDto: PerformanceFilterDto) {
+    return this.reportSummaryService.getPerformanceStats(filterDto.period || PeriodType.MONTHLY);
+  }
 
   // --- Existing GET/DELETE Endpoints ---
   @SkipThrottle()

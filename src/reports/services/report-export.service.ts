@@ -183,7 +183,7 @@ export class ReportExportService {
         { key: 'idLaporan', width: 18 }, // Added ID Laporan
         { key: 'idpel', width: 15 },
         { key: 'nomorMeter', width: 15 },
-        { key: 'tipeMeter', width: 12 }, // Added Tipe Meter
+        { key: 'tipeMeter', width: 13 }, // Added Tipe Meter
         { key: 'tglYantek', width: 15 },
         { key: 'tglPenyambungan', width: 15 },
         { key: 'petugasYantek', width: 20 },
