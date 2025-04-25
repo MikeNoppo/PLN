@@ -1,6 +1,7 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { StatusLaporan } from '@prisma/client';
+import { StatusLaporan, TipeMeter } from '@prisma/client';
+
 
 @Injectable()
 export class ReportSummaryService {
@@ -68,6 +69,56 @@ export class ReportSummaryService {
     } catch (error) {
       this.logger.error('Error fetching report summary:', error);
       throw new InternalServerErrorException('Gagal mengambil ringkasan laporan.');
+    }
+  }
+
+  async getDashboardStats() {
+    try {
+      const [countRusak, countOptimal, countPraBayar, countPascaBayar] = await this.prisma.$transaction([
+        // Total laporan Yantek dengan status BARU atau DIPROSES (Belum Selesai = rusak)
+        this.prisma.laporanYantek.count({
+          where: {
+            status_laporan: {
+              in: [StatusLaporan.BARU, StatusLaporan.DIPROSES]
+            },
+          }
+        }),
+        // Total laporan Yantek dengan status SELESAI (Selesai = optimal)
+        this.prisma.laporanYantek.count({
+          where: {
+            status_laporan: StatusLaporan.SELESAI
+          }
+        }),
+        // Total laporan Yantek dengan jenis meteran PRA-BAYAR
+        this.prisma.laporanYantek.count({
+          where: {
+            tipe_meter: TipeMeter.PRA_BAYAR
+          }
+        }),
+        // Total laporan Yantek dengan jenis meteran PASCA-BAYAR
+        this.prisma.laporanYantek.count({
+          where: {
+            tipe_meter: TipeMeter.PASCA_BAYAR
+          }
+        })
+      ]);
+
+      return {
+        message: 'Data Statistik berhasil diambil',
+        data:{
+          meterStatus: {
+            rusak: countRusak,
+            optimal: countOptimal
+          },
+          meterTypes: {
+            praBayar: countPraBayar,
+            pascaBayar: countPascaBayar
+          }
+        }
+      };
+    } catch (error) {
+      this.logger.error('Error fetching dashboard stats:', error);
+      throw new InternalServerErrorException('Gagal mengambil data statistik.');
     }
   }
 }

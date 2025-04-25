@@ -101,6 +101,13 @@ export class ReportsController {
   getSummary() {
     return this.reportSummaryService.getSummary();
   }
+
+  @SkipThrottle()
+  @Roles(UserRole.ADMIN)
+  @Get('dashboard-stats')
+  getdashboardStats(){
+    return this.reportSummaryService.getDashboardStats();
+  }
   
 
   // --- Existing GET/DELETE Endpoints ---
