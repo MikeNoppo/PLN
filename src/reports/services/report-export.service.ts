@@ -6,6 +6,8 @@ import * as ExcelJS from 'exceljs';
 import { StreamableFile } from '@nestjs/common';
 import { Response } from 'express';
 import { TipeMeter } from '@prisma/client'; // Import necessary enums/types
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ReportExportService {
@@ -118,21 +120,39 @@ export class ReportExportService {
 
       // --- Data Rows ---
       const baseUrl = this.configService.get<string>('APP_URL') || ''; // Get base URL or default
+      // Ganti: gunakan process.cwd() agar path selalu ke root project
+      const uploadsDir = path.resolve(process.cwd(), 'uploads/reports');
+
+      // Helper to get image buffer and extension
+      const getImageBuffer = (relativePath: string | null | undefined) => {
+        if (!relativePath) {
+          return null;
+        }
+        // Standarisasi path: ganti backslash ke slash
+        const safePath = relativePath.replace(/\\/g, '/').replace(/\//g, '/');
+        const absPath = path.join(uploadsDir, safePath);
+        if (!fs.existsSync(absPath)) {
+          return null;
+        }
+        let ext = path.extname(absPath).replace('.', '').toLowerCase();
+        if (ext === 'jpg') ext = 'jpeg';
+        if (!['jpeg', 'png', 'gif'].includes(ext)) {
+          return null;
+        }
+        const buffer = fs.readFileSync(absPath);
+        return { buffer, extension: ext as 'jpeg' | 'png' | 'gif' };
+      };
+
+      // Set column width untuk kolom gambar (J=10, K=11, dst)
+      [10, 11, 12, 13, 14, 15].forEach((colIdx) => {
+        worksheet.getColumn(colIdx).width = 25;
+      });
+
+      // Start from row 4 (karena judul + header + 1 baris kosong)
+      let excelRow = 4;
 
       reports.forEach((report, index) => {
         const penyambungan = report.laporan_penyambungan;
-
-        // Helper to create hyperlink
-        const createHyperlink = (relativePath: string | null | undefined) => {
-          if (!relativePath) return '-';
-          // Basic check if it's already a full URL (less likely from our storage)
-          if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
-             return { text: 'Lihat Foto', hyperlink: relativePath };
-          }
-          // Construct full URL - ensure no double slashes if baseUrl ends with / and relativePath starts with /
-          const fullUrl = `${baseUrl.replace(/\/$/, '')}/uploads/reports/${relativePath.replace(/^\//, '')}`;
-          return { text: 'Lihat Foto', hyperlink: fullUrl };
-        };
 
         const formatDate = (date: Date | null | undefined) => {
             if (!date) return '-';
@@ -145,6 +165,7 @@ export class ReportExportService {
             }
         }
 
+        // Add row with placeholders for images
         const row = worksheet.addRow([
           index + 1,
           report.id, // Added ID Laporan
@@ -155,12 +176,12 @@ export class ReportExportService {
           formatDate(penyambungan?.createdAt),
           report.nama_petugas || '-',
           penyambungan?.nama_petugas || '-',
-          createHyperlink(report.foto_rumah),
-          createHyperlink(report.foto_meter_rusak),
-          createHyperlink(report.foto_ba_gangguan),
-          createHyperlink(penyambungan?.foto_pemasangan_meter),
-          createHyperlink(penyambungan?.foto_rumah_pelanggan),
-          createHyperlink(penyambungan?.foto_ba_pemasangan),
+          '', // Foto Rumah
+          '', // Foto Meter Rusak
+          '', // Foto BA Gangguan
+          '', // Foto Pasang Meter
+          '', // Foto Rumah Pelanggan
+          '', // Foto BA Pasang
           report.status_laporan,
           report.keterangan || '-', // Added Keterangan
         ]);
@@ -175,6 +196,42 @@ export class ReportExportService {
         row.getCell(1).alignment = { vertical: 'top', horizontal: 'center' };
         // Specific alignment for Status Laporan
         row.getCell(16).alignment = { vertical: 'top', horizontal: 'center' };
+
+        // Set row height agar gambar muat thumbnail
+        worksheet.getRow(excelRow).height = 100; 
+
+        // Embed images (J=10, K=11, L=12, M=13, N=14, O=15)
+        const imageFields = [
+          report.foto_rumah,
+          report.foto_meter_rusak,
+          report.foto_ba_gangguan,
+          penyambungan?.foto_pemasangan_meter,
+          penyambungan?.foto_rumah_pelanggan,
+          penyambungan?.foto_ba_pemasangan,
+        ];
+        imageFields.forEach((imgPath, i) => {
+          const img = getImageBuffer(imgPath);
+          if (img) {
+            try {
+              const imageId = workbook.addImage({ buffer: img.buffer, extension: img.extension });
+              const colIdx = 9 + i;
+              const rowIdx = excelRow - 1;
+              worksheet.addImage(imageId, {
+                tl: { col: colIdx, row: rowIdx },
+                ext: { width: 100, height: 100 },
+                editAs: 'oneCell',
+              });
+              row.getCell(10 + i).alignment = { vertical: 'middle', horizontal: 'center' };
+            } catch (err) {
+              row.getCell(10 + i).value = '-';
+              row.getCell(10 + i).alignment = { vertical: 'middle', horizontal: 'center' };
+            }
+          } else {
+            row.getCell(10 + i).value = '-';
+            row.getCell(10 + i).alignment = { vertical: 'middle', horizontal: 'center' };
+          }
+        });
+        excelRow++;
       });
 
       // --- Column Widths ---
@@ -188,12 +245,12 @@ export class ReportExportService {
         { key: 'tglPenyambungan', width: 15 },
         { key: 'petugasYantek', width: 20 },
         { key: 'petugasPenyambungan', width: 20 },
-        { key: 'fotoRumah', width: 15 },
-        { key: 'fotoMeterRusak', width: 15 },
-        { key: 'fotoBaGangguan', width: 15 },
-        { key: 'fotoPasangMeter', width: 15 },
-        { key: 'fotoRumahPelanggan', width: 15 },
-        { key: 'fotoBaPasang', width: 15 },
+        { key: 'fotoRumah', width: 20 },
+        { key: 'fotoMeterRusak', width: 20 },
+        { key: 'fotoBaGangguan', width: 20 },
+        { key: 'fotoPasangMeter', width: 20 },
+        { key: 'fotoRumahPelanggan', width: 20 },
+        { key: 'fotoBaPasang', width: 20 },
         { key: 'status', width: 15 },
         { key: 'keterangan', width: 30 }, // Added Keterangan
       ];
