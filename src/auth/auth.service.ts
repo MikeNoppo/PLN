@@ -137,11 +137,7 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token provided.');
       }
 
-      // --- Token Rotation ---
-      await this.prisma.token.delete({
-        where: { id: matchedTokenRecord.id },
-      });
-
+      // Fetch user info before transaction
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
         select: {
@@ -152,10 +148,33 @@ export class AuthService {
       });
 
       if (!user) {
-        // This case should be rare if payload verification succeeded, but good to handle
         throw new UnauthorizedException('User associated with token not found.');
       }
 
+      // --- Token Rotation (atomic) ---
+      const refreshTokenValue = this.jwtService.sign(
+        { sub: user.id, username: user.username, role: user.role },
+        {
+          secret: this.configService.get('REFRESH_TOKEN_SECRET'),
+          expiresIn: this.configService.get('RT_EXPIRES_IN'),
+        }
+      );
+      const rtExpiresIn = this.configService.get('RT_EXPIRES_IN') || '7d';
+      const daysToAdd = parseInt(rtExpiresIn.replace('d', ''), 10) || 7;
+      const expiresAt = add(new Date(), { days: daysToAdd });
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.token.delete({
+          where: { id: matchedTokenRecord.id },
+        });
+        await tx.token.create({
+          data: {
+            token: refreshTokenValue,
+            userId: user.id,
+            expiresAt,
+          },
+        });
+      });
 
       const newTokens = await this.generateTokens(user.id, user.username, user.role);
 
