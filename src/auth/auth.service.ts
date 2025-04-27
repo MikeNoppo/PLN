@@ -205,19 +205,20 @@ export class AuthService {
     const daysToAdd = parseInt(rtExpiresIn.replace('d', ''), 10) || 7;
     const expiresAt = add(new Date(), { days: daysToAdd });
 
-    // --- Delete existing tokens for the user BEFORE creating the new one --- 
-    await this.prisma.token.deleteMany({
-      where: { userId },
-    });
-    // ----------------------------------------------------------------------
+    await this.prisma.$transaction(async (tx) => {
+      // Delete existing tokens for the user
+      await tx.token.deleteMany({
+        where: { userId },
+      });
 
-    // Create the new refresh token record
-    await this.prisma.token.create({
-      data: {
-        token: refreshToken,
-        userId,
-        expiresAt,
-      },
+      // Create the new refresh token record
+      await tx.token.create({
+        data: {
+          token: refreshToken,
+          userId,
+          expiresAt,
+        },
+      });
     });
 
     return {
