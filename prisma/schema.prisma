@@ -42,24 +42,29 @@ model Token {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model User {
   id         String    @id @default(cuid())
   username   String    @unique
   password   String
-  name       String    
+  name       String
   createdAt  DateTime  @default(now())
   role       UserRole
   lastOnline DateTime?
 
   relatedActivityLogs ActivityLog[]
   tokens     Token[]
+
+  @@index([role])
 }
 
 model LaporanYantek {
-  id                      String       @id@unique
-  ID_Pelanggan            String      
+  id                      String       @id @unique
+  ID_Pelanggan            String
   nomor_meter             String
   tipe_meter              TipeMeter
   no_telepon_pelanggan    String
@@ -74,13 +79,15 @@ model LaporanYantek {
   keterangan              String?
   createdAt               DateTime     @default(now())
 
-  @@index([id])
+  @@index([status_laporan]) // Added index for status filtering
+  @@index([createdAt]) // Added index for ordering
+
   laporan_penyambungan    LaporanPenyambungan?
   activityLogs ActivityLog[] @relation("YantekLogs")
 }
 
 model LaporanPenyambungan {
-  id                      String       @id 
+  id                      String       @id
   laporan_yante_id        String       @unique
   foto_pemasangan_meter   String
   foto_rumah_pelanggan    String
@@ -88,8 +95,9 @@ model LaporanPenyambungan {
   nama_petugas            String
   status_laporan          StatusLaporan @default(SELESAI)
   createdAt               DateTime     @default(now())
-  
-  @@index([id])
+
+  @@index([laporan_yante_id]) // Explicitly added index for foreign key/unique field
+
   laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id], onDelete: Cascade)
   activityLogs ActivityLog[] @relation("PenyambunganLogs")
 }
