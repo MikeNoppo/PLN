@@ -122,7 +122,7 @@ export class ReportsController {
   @Get()
   @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
   findAll(@Query() paginationQuery: PaginationQueryDto) {
-    return this.reportsService.findAll(paginationQuery);
+    return this.reportsService.FindActiveReport(paginationQuery);
   }
 
   @SkipThrottle()

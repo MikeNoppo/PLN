@@ -291,7 +291,7 @@ export class ReportsService {
   }
 
 
-  async findAll(paginationQuery: PaginationQueryDto) {
+  async FindActiveReport(paginationQuery: PaginationQueryDto) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
@@ -301,6 +301,11 @@ export class ReportsService {
         take: limit,
         orderBy: {
           createdAt: 'desc',
+        },
+        where: {
+          status_laporan: {
+            in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
+          },
         },
         include: {
           laporan_penyambungan: {
@@ -314,7 +319,13 @@ export class ReportsService {
           },
         },
       }),
-      this.prisma.laporanYantek.count(),
+      this.prisma.laporanYantek.count({
+        where: {
+          status_laporan: {
+            in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
+          },
+        },
+      }),
     ]);
 
     const totalPages = Math.ceil(totalItems / limit);

@@ -1,8 +1,8 @@
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class CreatePenyambunganDto {
   @IsNotEmpty()
-  @IsUUID()
+  @IsString()
   laporan_yante_id: string;
 
   @IsNotEmpty()
