@@ -473,4 +473,53 @@ export class ReportsService {
       throw new InternalServerErrorException('Gagal memperbarui status laporan.');
     }
   }
+
+  async findHistory(paginationQuery: PaginationQueryDto) {
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
+
+    // Ambil laporan Yantek yang statusnya SELESAI dan sudah ada laporan_penyambungan
+    const [data, totalItems] = await Promise.all([
+      this.prisma.laporanYantek.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        where: {
+          status_laporan: StatusLaporan.SELESAI,
+          NOT: { laporan_penyambungan: null },
+        },
+        include: {
+          laporan_penyambungan: {
+            select: {
+              createdAt: true,
+              nama_petugas: true,
+              foto_pemasangan_meter: true,
+              foto_rumah_pelanggan: true,
+              foto_ba_pemasangan: true,
+              status_laporan: true,
+            },
+          },
+        },
+      }),
+      this.prisma.laporanYantek.count({
+        where: {
+          status_laporan: StatusLaporan.SELESAI,
+          NOT: { laporan_penyambungan: null },
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
 }

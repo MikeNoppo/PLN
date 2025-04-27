@@ -133,6 +133,13 @@ export class ReportsController {
   }
 
   @SkipThrottle()
+  @Get('history')
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
+  findHistory(@Query() paginationQuery: PaginationQueryDto) {
+    return this.reportsService.findHistory(paginationQuery);
+  }
+
+  @SkipThrottle()
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   remove(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
