@@ -5,8 +5,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { ImageService } from './services/image.service';
 import { StorageService } from './services/storage.service';
-import { StatusLaporan, TipeMeter } from '@prisma/client';
-import { ConfigService } from '@nestjs/config';
+import { StatusLaporan } from '@prisma/client';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { FileValidator } from '../utils/file-validator.util';
@@ -20,11 +19,11 @@ export class ReportsService {
     private prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly imageService: ImageService,
-    private readonly configService: ConfigService,
     private readonly activityLogsService: ActivityLogsService,
   ) {}
 
-  private async generateLaporanId(type: 'YT' | 'PS'): Promise<string> {
+  // Modified to accept Prisma client (main or transaction)
+  private async generateLaporanId(type: 'YT' | 'PS', prismaClient: Prisma.TransactionClient | PrismaService): Promise<string> {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -41,9 +40,9 @@ export class ReportsService {
         AND id <= ${endRange}
       ORDER BY id DESC 
       LIMIT 1`;
-      
-    // Execute the raw query
-    const lastReport = await this.prisma.$queryRaw<Array<{ id: string }>>(query);
+
+    // Execute the raw query using the provided client
+    const lastReport = await prismaClient.$queryRaw<Array<{ id: string }>>(query);
 
     let sequence = 1;
     if (lastReport.length > 0) {
@@ -58,28 +57,11 @@ export class ReportsService {
     return `${prefix}${String(sequence).padStart(4, '0')}`;
   }
 
-  // Tambahkan simple caching untuk mengurangi query
-  private lastGeneratedIds: Map<string, { id: string; timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 1000; // 1 detik
-
-  private async getNextId(type: 'YT' | 'PS'): Promise<string> {
-    const now = Date.now();
-    const currentPrefix = `${type}${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const cached = this.lastGeneratedIds.get(currentPrefix);
-
-    if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
-      const lastSequence = parseInt(cached.id.slice(-4));
-      const nextSequence = lastSequence + 1;
-      const nextId = `${currentPrefix}${String(nextSequence).padStart(4, '0')}`;
-      
-      this.lastGeneratedIds.set(currentPrefix, { id: nextId, timestamp: now });
-      return nextId;
-    }
-
-    const newId = await this.generateLaporanId(type);
-    this.lastGeneratedIds.set(currentPrefix, { id: newId, timestamp: now });
+  private async getNextId(type: 'YT' | 'PS', prismaClient: Prisma.TransactionClient | PrismaService): Promise<string> {
+    const newId = await this.generateLaporanId(type, prismaClient);
     return newId;
   }
+
 
   validateAndProcessYantekFiles(files: {
     foto_rumah?: Express.Multer.File[];
@@ -126,58 +108,64 @@ export class ReportsService {
     },
     userId?: string,
   ) {
-    const id = await this.getNextId('YT');
-
-    // Process and store files
+    // Process and store files first (outside transaction)
     const [fotoRumahPath, fotoMeterPath, fotoBaPath] = await Promise.all([
       this.processAndSaveImage(files.foto_rumah[0], 'house'),
       this.processAndSaveImage(files.foto_meter_rusak[0], 'meter'),
       this.processAndSaveImage(files.foto_ba_gangguan[0], 'document'),
     ]);
 
+    let report; // Declare report variable outside transaction scope
     try {
-      // Create report in database
-      const report = await this.prisma.laporanYantek.create({
-        data: {
-          id,
-          ...createReportDto,
-          foto_rumah: fotoRumahPath,
-          foto_meter_rusak: fotoMeterPath,
-          foto_ba_gangguan: fotoBaPath,
-          status_laporan: StatusLaporan.BARU,
-        },
+      // Use transaction for ID generation and report creation
+      report = await this.prisma.$transaction(async (tx) => {
+        const id = await this.getNextId('YT', tx); // Pass transaction client
+
+        const createdReport = await tx.laporanYantek.create({ // Use tx client
+          data: {
+            id,
+            ...createReportDto,
+            foto_rumah: fotoRumahPath,
+            foto_meter_rusak: fotoMeterPath,
+            foto_ba_gangguan: fotoBaPath,
+            status_laporan: StatusLaporan.BARU,
+          },
+        });
+        return createdReport; // Return the created report from transaction
       });
 
-      // *** Create Activity Log ***
-      if (userId) {
+      // *** Create Activity Log (outside transaction, using the created report ID) ***
+      if (userId && report) { // Check if report was successfully created
         await this.activityLogsService.createLog({
           activityType: ActivityType.REPORT_CREATED,
-          relatedYantekReportId: report.id,
+          relatedYantekReportId: report.id, // Use the ID from the created report
           relatedUserId: userId,
           message: `Laporan Yantek baru [${report.id}] dibuat.`,
         }).catch(logError => {
-          this.logger.error(`Failed to create activity log for Yantek creation ${report.id}:`, logError);
+          // Log error but don't fail the whole operation if logging fails
+          this.logger.error(`Failed to create activity log for Yantek creation ${report?.id}:`, logError);
         });
       }
 
       return {
         status: 201,
         message: 'Laporan Yantek berhasil dibuat',
-        data: report,
+        data: report, // Return the report created within the transaction
       };
 
     } catch (error) {
-      // Clean up stored files if database operation fails
+      // Clean up stored files if database transaction fails or subsequent logging fails
+      this.logger.error('Error during Yantek creation transaction or logging:', error);
       await Promise.all([
-        this.storageService.deleteFile(fotoRumahPath),
-        this.storageService.deleteFile(fotoMeterPath),
-        this.storageService.deleteFile(fotoBaPath),
+        this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)),
+        this.storageService.deleteFile(fotoMeterPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoMeterPath}: ${e}`)),
+        this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)),
       ]);
-
-      this.logger.error('Error creating report:', error);
+      // Re-throw the original error after cleanup attempt
       throw error;
     }
   }
+
 
   private async processAndSaveImage(
     file: Express.Multer.File,
@@ -230,63 +218,75 @@ export class ReportsService {
       ]);
 
       // 4. Perform database operations in a transaction
-      const result = await this.prisma.$transaction(async (prisma) => {
-        const id = await this.getNextId('PS');
+      let result; // Declare result outside transaction scope
+      try {
+        result = await this.prisma.$transaction(async (tx) => { // Use tx for transaction client
+          // Generate ID within the transaction
+          const id = await this.getNextId('PS', tx); // Pass transaction client
 
-        // Create LaporanPenyambungan
-        const laporanPenyambungan = await prisma.laporanPenyambungan.create({
-          data: {
-            id,
-            laporan_yante_id: createPenyambunganDto.laporan_yante_id,
-            nama_petugas: createPenyambunganDto.nama_petugas,
-            foto_pemasangan_meter: fotoPemasanganPath,
-            foto_rumah_pelanggan: fotoRumahPath,
-            foto_ba_pemasangan: fotoBaPath,
-            status_laporan: StatusLaporan.SELESAI,
-          },
+          // Create LaporanPenyambungan using transaction client
+          const laporanPenyambungan = await tx.laporanPenyambungan.create({
+            data: {
+              id,
+              laporan_yante_id: createPenyambunganDto.laporan_yante_id,
+              nama_petugas: createPenyambunganDto.nama_petugas,
+              foto_pemasangan_meter: fotoPemasanganPath,
+              foto_rumah_pelanggan: fotoRumahPath,
+              foto_ba_pemasangan: fotoBaPath,
+              status_laporan: StatusLaporan.SELESAI,
+            },
+          });
+
+          // Update LaporanYantek status using transaction client
+          await tx.laporanYantek.update({
+            where: { id: createPenyambunganDto.laporan_yante_id },
+            data: { status_laporan: StatusLaporan.SELESAI },
+          });
+
+          // Return the created penyambungan report from transaction
+          return laporanPenyambungan;
         });
 
-        // Update LaporanYantek status
-        await prisma.laporanYantek.update({
-          where: { id: createPenyambunganDto.laporan_yante_id },
-          data: { status_laporan: StatusLaporan.SELESAI },
-        });
-
-        // *** Create Activity Log for Completion ***
-        if (userId) {
+        // *** Create Activity Log ***
+        if (userId && result) { // Check if transaction was successful and result exists
           await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_COMPLETED,
             relatedYantekReportId: createPenyambunganDto.laporan_yante_id,
-            relatedPenyambunganReportId: laporanPenyambungan.id,
+            relatedPenyambunganReportId: result.id, // Use ID from transaction result
             relatedUserId: userId,
-            message: `Laporan [${createPenyambunganDto.laporan_yante_id}] diselesaikan via penyambungan [${laporanPenyambungan.id}].`,
+            message: `Laporan [${createPenyambunganDto.laporan_yante_id}] diselesaikan via penyambungan [${result.id}].`,
           }).catch(logError => {
-            this.logger.error(`Failed to create activity log for Penyambungan completion ${laporanPenyambungan.id}:`, logError);
+            // Log error but don't fail the whole operation if logging fails
+            this.logger.error(`Failed to create activity log for Penyambungan completion ${result?.id}:`, logError);
           });
         }
 
-        return laporanPenyambungan;
-      });
+        return {
+          status: 201,
+          message: 'Laporan Penyambungan berhasil dibuat',
+          data: result,
+        };
 
-      return {
-        status: 201,
-        message: 'Laporan Penyambungan berhasil dibuat',
-        data: result,
-      };
-
-    } catch (error) {
-      // Clean up stored files if any operation fails
+      } catch (error) {
+        // Clean up stored files if transaction or logging fails
+        this.logger.error('Error during Penyambungan creation transaction or logging:', error);
+        await Promise.all([
+          fotoPemasanganPath ? this.storageService.deleteFile(fotoPemasanganPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPemasanganPath}: ${e}`)) : Promise.resolve(),
+          fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)) : Promise.resolve(),
+          fotoBaPath ? this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)) : Promise.resolve(),
+        ]);
+        // Re-throw the original error after cleanup attempt
+        throw error;
+      }
+    } catch (error) { // This outer catch handles errors from file processing before the transaction
+      this.logger.error('Error processing Penyambungan files before transaction:', error);
+      // Attempt cleanup even if file processing failed partially
       await Promise.all([
-        fotoPemasanganPath ? this.storageService.deleteFile(fotoPemasanganPath) : Promise.resolve(),
-        fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath) : Promise.resolve(),
-        fotoBaPath ? this.storageService.deleteFile(fotoBaPath) : Promise.resolve(),
-      ]).catch(cleanupError => {
-          console.error("Error during file cleanup:", cleanupError);
-      });
-
-      // Re-throw the original error
-      // Consider adding specific Prisma error code handling (like P2002 if needed elsewhere)
-      throw error;
+        fotoPemasanganPath ? this.storageService.deleteFile(fotoPemasanganPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPemasanganPath}: ${e}`)) : Promise.resolve(),
+        fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)) : Promise.resolve(),
+        fotoBaPath ? this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)) : Promise.resolve(),
+      ]);
+      throw error; // Re-throw the file processing error
     }
   }
 
@@ -408,7 +408,7 @@ export class ReportsService {
       return {
         status: 200,
         message: 'Laporan berhasil dihapus',
-        data: { id: deletedReport.id }, // Return only ID or necessary confirmation
+        data: { id: deletedReport.id }, 
       };
     } catch (error) {
       this.logger.error(`Error during database deletion for report ${id}:`, error);
@@ -428,7 +428,6 @@ export class ReportsService {
     const previousStatus = report.status_laporan;
     const newStatus = dto.status_laporan;
 
-    // Prevent unnecessary updates or logging if status hasn't changed
     if (previousStatus === newStatus) {
       return {
         status: 200, // OK, but no change
@@ -439,7 +438,6 @@ export class ReportsService {
 
     const shouldLogCompletion = newStatus === StatusLaporan.SELESAI && previousStatus !== StatusLaporan.SELESAI;
     const shouldLogProcessing = newStatus === StatusLaporan.DIPROSES && previousStatus !== StatusLaporan.DIPROSES;
-    // Determine if a generic update log should be created
     const shouldLogGenericUpdate = !shouldLogCompletion && !shouldLogProcessing;
 
     try {
@@ -459,14 +457,14 @@ export class ReportsService {
           }).catch(logError => { this.logger.error(`Failed log completion for ${id}:`, logError); });
         } else if (shouldLogProcessing) {
           await this.activityLogsService.createLog({
-            activityType: ActivityType.REPORT_PROCESSED, // Use the correct enum value
+            activityType: ActivityType.REPORT_PROCESSED,
             relatedYantekReportId: id,
             relatedUserId: userId,
             message: `Laporan [${id}] status diubah menjadi DIPROSES (dari ${previousStatus}).`,
           }).catch(logError => { this.logger.error(`Failed log processing for ${id}:`, logError); });
-        } else if (shouldLogGenericUpdate) { // Log other status changes as REPORT_UPDATED
+        } else if (shouldLogGenericUpdate) { 
           await this.activityLogsService.createLog({
-            activityType: ActivityType.REPORT_UPDATED, // Use the generic update type
+            activityType: ActivityType.REPORT_UPDATED, 
             relatedYantekReportId: id,
             relatedUserId: userId,
             message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
@@ -480,7 +478,7 @@ export class ReportsService {
         data: updatedReport,
       };
     } catch (error) {
-      this.logger.error(`Error updating status for report ${id}:`, error); // Added error logging
+      this.logger.error(`Error updating status for report ${id}:`, error); 
       throw new InternalServerErrorException('Gagal memperbarui status laporan.');
     }
   }
@@ -489,7 +487,6 @@ export class ReportsService {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
-    // Ambil laporan Yantek yang statusnya SELESAI dan sudah ada laporan_penyambungan
     const [data, totalItems] = await Promise.all([
       this.prisma.laporanYantek.findMany({
         skip,
