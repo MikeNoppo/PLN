@@ -174,7 +174,7 @@ export class AuthService {
         throw error; // Re-throw known unauthorized errors
       }
       // Throw a generic error for unexpected issues (like JWT verification failure)
-      throw new UnauthorizedException(`Invalid refresh token: ${error.message}`);
+      throw new UnauthorizedException('Invalid refresh token'); // Mask detailed error message
     }
   }
 
