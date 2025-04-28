@@ -16,8 +16,6 @@ export class RefreshTokenGuard extends AuthGuard('refresh-token') {
     }
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-        this.logger.debug('RefreshTokenGuard: Validating refresh token');
-
         const result$ = super.canActivate(context);
 
         if (typeof result$ === 'boolean') {
@@ -101,7 +99,5 @@ export class RefreshTokenGuard extends AuthGuard('refresh-token') {
             this.logger.warn(`Token validation failed: No valid token found for user ${user.userId}`);
             throw new UnauthorizedException('Invalid or expired refresh token');
         }
-        
-        this.logger.debug(`Token validation successful for user ${user.userId}`);
     }
 }
