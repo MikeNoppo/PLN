@@ -1,12 +1,20 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Request } from 'express'; // Import Request
+import { Request } from 'express'; 
+
+interface JwtPayload{
+  id: string;
+  username: string;
+  role: string;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
@@ -15,34 +23,34 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       // Try extracting from header first (for mobile), then from cookie (for web)
       jwtFromRequest: ExtractJwt.fromExtractors([
         ExtractJwt.fromAuthHeaderAsBearerToken(),
-        (request: Request) => {
-          return request?.cookies?.access_token;
-        },
+        (request: Request) => request?.cookies?.access_token,
       ]),
       ignoreExpiration: false,
       secretOrKey: configService.get('JWT_SECRET'),
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: any) {
-    // Find user
+  async validate(req: Request ,payload: JwtPayload){
+    // find user
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
+      where : { id: payload.id },
+      select : {
         id: true,
         username: true,
         role: true,
       },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    if (!user){
+      this.logger.warn(`JWT validation failed for user ${payload.username} not found`);
+      throw new UnauthorizedException('invalid token or user not found');
     }
 
-    return { 
-      id: user.id,
-      username: user.username, 
-      role: user.role 
+    return{
+      id : user.id,
+      username : user.username,
+      role : user.role,
     };
   }
 }
