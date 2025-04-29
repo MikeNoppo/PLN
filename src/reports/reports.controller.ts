@@ -126,17 +126,17 @@ export class ReportsController {
   }
 
   @SkipThrottle()
-  @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
-  findOne(@Param('id') id: string) {
-    return this.reportsService.findOne(id);
-  }
-
-  @SkipThrottle()
   @Get('history')
   @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
   findHistory(@Query() paginationQuery: PaginationQueryDto) {
     return this.reportsService.findHistory(paginationQuery);
+  }
+
+  @SkipThrottle()
+  @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
+  findOne(@Param('id') id: string) {
+    return this.reportsService.findOne(id);
   }
 
   @SkipThrottle()
