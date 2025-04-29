@@ -164,9 +164,19 @@ export class AuthService {
       const expiresAt = add(new Date(), { days: daysToAdd });
 
       await this.prisma.$transaction(async (tx) => {
-        await tx.token.delete({
+        // First check if the token still exists before attempting to delete
+        const tokenStillExists = await tx.token.findUnique({
           where: { id: matchedTokenRecord.id },
         });
+        
+        // Only attempt to delete if the token still exists
+        if (tokenStillExists) {
+          await tx.token.delete({
+            where: { id: matchedTokenRecord.id },
+          });
+        }
+        
+        // Create new token regardless
         await tx.token.create({
           data: {
             token: refreshTokenValue,
