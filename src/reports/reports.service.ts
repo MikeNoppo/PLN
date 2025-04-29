@@ -240,7 +240,7 @@ export class ReportsService {
           // Update LaporanYantek status using transaction client
           await tx.laporanYantek.update({
             where: { id: createPenyambunganDto.laporan_yante_id },
-            data: { status_laporan: StatusLaporan.SELESAI },
+            data: { status_laporan: StatusLaporan.DIPROSES},
           });
 
           // Return the created penyambungan report from transaction
