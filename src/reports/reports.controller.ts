@@ -120,21 +120,21 @@ export class ReportsController {
   // --- Existing GET/DELETE Endpoints ---
   @SkipThrottle()
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK, UserRole.PETUGAS_PENYAMBUNGAN)
   findAll(@Query() paginationQuery: PaginationQueryDto) {
     return this.reportsService.FindActiveReport(paginationQuery);
   }
 
   @SkipThrottle()
   @Get('history')
-  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK, UserRole.PETUGAS_PENYAMBUNGAN)
   findHistory(@Query() paginationQuery: PaginationQueryDto) {
     return this.reportsService.findHistory(paginationQuery);
   }
 
   @SkipThrottle()
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK,UserRole.PETUGAS_PENYAMBUNGAN)
   findOne(@Param('id') id: string) {
     return this.reportsService.findOne(id);
   }
