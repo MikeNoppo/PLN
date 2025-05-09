@@ -120,16 +120,29 @@ export class ReportsController {
   // --- Existing GET/DELETE Endpoints ---
   @SkipThrottle()
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK, UserRole.PETUGAS_PENYAMBUNGAN)
-  findAll(@Query() paginationQuery: PaginationQueryDto) {
-    return this.reportsService.FindActiveReport(paginationQuery);
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK, UserRole.PETUGAS_PENYAMBUNGAN) 
+  findAll(@Req() req: AuthenticatedRequest, @Query() paginationQuery: PaginationQueryDto) {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    return this.reportsService.FindActiveReport(paginationQuery, userId, userRole);
+  }
+
+  @SkipThrottle()
+  @Get('penyambungan')
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_PENYAMBUNGAN)
+  findPenyambungan(@Req() req: AuthenticatedRequest, @Query() paginationQuery: PaginationQueryDto) {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    return this.reportsService.findPenyambunganReports(paginationQuery, userId, userRole);
   }
 
   @SkipThrottle()
   @Get('history')
-  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK, UserRole.PETUGAS_PENYAMBUNGAN)
-  findHistory(@Query() paginationQuery: PaginationQueryDto) {
-    return this.reportsService.findHistory(paginationQuery);
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
+  findHistory(@Req() req: AuthenticatedRequest, @Query() paginationQuery: PaginationQueryDto) {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    return this.reportsService.findHistory(paginationQuery, userId, userRole);
   }
 
   @SkipThrottle()

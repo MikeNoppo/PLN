@@ -1,11 +1,10 @@
 import { Injectable, BadRequestException, NotFoundException, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma, ActivityType } from '@prisma/client';
+import { Prisma, ActivityType, StatusLaporan, UserRole } from '@prisma/client';
 import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { ImageService } from './services/image.service';
 import { StorageService } from './services/storage.service';
-import { StatusLaporan } from '@prisma/client';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { FileValidator } from '../utils/file-validator.util';
@@ -301,14 +300,13 @@ export class ReportsService {
   }
 
 
-  async FindActiveReport(paginationQuery: PaginationQueryDto) {
+  async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
-    const [data, totalItems] = await Promise.all([
+    // First, fetch all active reports
+    const [allData] = await Promise.all([
       this.prisma.laporanYantek.findMany({
-        skip,
-        take: limit,
         orderBy: {
           createdAt: 'desc',
         },
@@ -327,6 +325,15 @@ export class ReportsService {
               foto_ba_pemasangan: true,
             },
           },
+          activityLogs: {
+            where: {
+              activityType: ActivityType.REPORT_CREATED,
+            },
+            select: {
+              relatedUserId: true,
+            },
+            take: 1,
+          },
         },
       }),
       this.prisma.laporanYantek.count({
@@ -338,12 +345,31 @@ export class ReportsService {
       }),
     ]);
 
-    const totalPages = Math.ceil(totalItems / limit);
+    // Then filter in the application layer based on role and userId
+    let filteredData = [...allData];
+    
+    // If user is PETUGAS_YANTEK, only show reports they created
+    if (userRole === UserRole.PETUGAS_YANTEK && userId) {
+      filteredData = allData.filter(report => {
+        // Check if the report was created by this user
+        return report.activityLogs.some(log => log.relatedUserId === userId);
+      });
+    }
+    // Apply pagination after filtering
+    const paginatedData = filteredData.slice(skip, skip + limit);
+    const filteredTotal = filteredData.length;
+    const totalPages = Math.ceil(filteredTotal / limit);
+
+    // Map the data to remove the activityLogs which was only used for filtering
+    const data = paginatedData.map(item => {
+      const { activityLogs, ...rest } = item;
+      return rest;
+    });
 
     return {
       data,
       meta: {
-        totalItems,
+        totalItems: filteredTotal,
         itemCount: data.length,
         itemsPerPage: limit,
         totalPages,
@@ -493,14 +519,13 @@ export class ReportsService {
     }
   }
 
-  async findHistory(paginationQuery: PaginationQueryDto) {
+  async findHistory(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
-    const [data, totalItems] = await Promise.all([
+    // First fetch all completed reports with their relationship data
+    const [allData, totalItems] = await Promise.all([
       this.prisma.laporanYantek.findMany({
-        skip,
-        take: limit,
         orderBy: { createdAt: 'desc' },
         where: {
           status_laporan: StatusLaporan.SELESAI,
@@ -517,6 +542,15 @@ export class ReportsService {
               status_laporan: true,
             },
           },
+          activityLogs: {
+            where: {
+              activityType: ActivityType.REPORT_CREATED,
+            },
+            select: {
+              relatedUserId: true,
+            },
+            take: 1,
+          },
         },
       }),
       this.prisma.laporanYantek.count({
@@ -527,12 +561,100 @@ export class ReportsService {
       }),
     ]);
 
-    const totalPages = Math.ceil(totalItems / limit);
+    // Then filter in the application layer based on role and userId
+    let filteredData = [...allData];
+    
+    // If user is PETUGAS_YANTEK, only show reports they created
+    if (userRole === UserRole.PETUGAS_YANTEK && userId) {
+      filteredData = allData.filter(report => {
+        // Check if the report was created by this user
+        return report.activityLogs.some(log => log.relatedUserId === userId);
+      });
+    }
+    // ADMIN sees everything (no filtering)
+
+    // Apply pagination after filtering
+    const paginatedData = filteredData.slice(skip, skip + limit);
+    const filteredTotal = filteredData.length;
+    const totalPages = Math.ceil(filteredTotal / limit);
+
+    // Map the data to remove the activityLogs which was only used for filtering
+    const data = paginatedData.map(item => {
+      const { activityLogs, ...rest } = item;
+      return rest;
+    });
 
     return {
       data,
       meta: {
-        totalItems,
+        totalItems: filteredTotal,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
+
+  async findPenyambunganReports(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
+
+    // First fetch all penyambungan reports
+    const [allData, totalItems] = await Promise.all([
+      this.prisma.laporanPenyambungan.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          laporan_yante: {
+            select: {
+              ID_Pelanggan: true,
+              nomor_meter: true,
+              tipe_meter: true,
+              no_telepon_pelanggan: true,
+              keterangan: true,
+            },
+          },
+          activityLogs: {
+            where: {
+              activityType: ActivityType.REPORT_COMPLETED,
+            },
+            select: {
+              relatedUserId: true,
+            },
+            take: 1,
+          },
+        },
+      }),
+      this.prisma.laporanPenyambungan.count(),
+    ]);
+
+    // Then filter in the application layer based on role and userId
+    let filteredData = [...allData];
+    
+    // If user is PETUGAS_PENYAMBUNGAN, only show reports they created
+    if (userRole === UserRole.PETUGAS_PENYAMBUNGAN && userId) {
+      filteredData = allData.filter(report => {
+        // Check if the report was completed by this user
+        return report.activityLogs.some(log => log.relatedUserId === userId);
+      });
+    }
+    // ADMIN sees everything (no filtering)
+
+    // Apply pagination after filtering
+    const paginatedData = filteredData.slice(skip, skip + limit);
+    const filteredTotal = filteredData.length;
+    const totalPages = Math.ceil(filteredTotal / limit);
+
+    // Map the data to remove the activityLogs which was only used for filtering
+    const data = paginatedData.map(item => {
+      const { activityLogs, ...rest } = item;
+      return rest;
+    });
+
+    return {
+      data,
+      meta: {
+        totalItems: filteredTotal,
         itemCount: data.length,
         itemsPerPage: limit,
         totalPages,
