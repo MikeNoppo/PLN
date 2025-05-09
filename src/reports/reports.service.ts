@@ -171,8 +171,18 @@ export class ReportsService {
     file: Express.Multer.File,
     type: 'house' | 'meter' | 'document' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba'
   ): Promise<string> {
-    const compressedImageBuffer = await this.imageService.compressImage(file.buffer);
-    return this.storageService.saveFile(compressedImageBuffer, type, file.originalname);
+    const MAX_SIZE_WITHOUT_COMPRESSION = 15 * 1024 * 1024; // 15MB in bytes
+    
+    let imageBuffer: Buffer;
+    
+    if (file.size > MAX_SIZE_WITHOUT_COMPRESSION) {
+      // Kompresi hanya untuk file yang lebih dari 15MB
+      imageBuffer = await this.imageService.compressImage(file.buffer);
+    } else {
+      // Gunakan file asli tanpa kompresi
+      imageBuffer = file.buffer;
+    }
+    return this.storageService.saveFile(imageBuffer, type, file.originalname);
   }
 
   async createPenyambungan(
