@@ -138,7 +138,7 @@ export class ReportsController {
 
   @SkipThrottle()
   @Get('history')
-  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK)
+  @Roles(UserRole.ADMIN, UserRole.PETUGAS_YANTEK, UserRole.PETUGAS_PENYAMBUNGAN)
   findHistory(@Req() req: AuthenticatedRequest, @Query() paginationQuery: PaginationQueryDto) {
     const userId = req.user?.id;
     const userRole = req.user?.role;
