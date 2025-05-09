@@ -55,21 +55,17 @@ export class RefreshTokenGuard extends AuthGuard('refresh-token') {
             const token = extractTokenFromRequest(request);
 
             if (!token) {
-                this.logger.warn('RefreshTokenGuard: No refresh token provided in request');
                 throw new UnauthorizedException('Refresh token not provided');
             }
 
             if (info instanceof Error) {
-                this.logger.error(`RefreshTokenGuard: ${info.message}`);
                 throw new UnauthorizedException(`Invalid refresh token: ${info.message}`);
             }
 
             if (err) {
-                this.logger.error(`RefreshTokenGuard: ${err.message}`);
                 throw new UnauthorizedException(`Authentication error: ${err.message}`);
             }
 
-            this.logger.warn('RefreshTokenGuard: User validation failed');
             throw new UnauthorizedException('Invalid refresh token');
         }
 
@@ -81,7 +77,6 @@ export class RefreshTokenGuard extends AuthGuard('refresh-token') {
         const refreshToken = extractTokenFromRequest(request);
 
         if (!refreshToken) {
-            this.logger.warn('Token validation failed: Token not found in request');
             throw new UnauthorizedException('Refresh token not found in request');
         }
 
