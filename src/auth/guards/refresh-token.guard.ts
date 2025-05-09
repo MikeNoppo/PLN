@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable, from } from 'rxjs';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,8 +7,6 @@ import { extractTokenFromRequest } from '../../utils/token.utils';
 
 @Injectable()
 export class RefreshTokenGuard extends AuthGuard('refresh-token') {
-    private readonly logger = new Logger(RefreshTokenGuard.name);
-
     constructor(
         private prisma: PrismaService
     ) {
@@ -41,7 +39,6 @@ export class RefreshTokenGuard extends AuthGuard('refresh-token') {
                     await this.validateTokenInDatabase(user, context);
                     return true;
                 } catch (error) {
-                    this.logger.error(`Token validation failed: ${error.message}`);
                     return false;
                 }
             }
@@ -91,7 +88,6 @@ export class RefreshTokenGuard extends AuthGuard('refresh-token') {
         });
 
         if (!tokenRecord) {
-            this.logger.warn(`Token validation failed: No valid token found for user ${user.userId}`);
             throw new UnauthorizedException('Invalid or expired refresh token');
         }
     }
