@@ -24,7 +24,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this username already exists');
+      throw new ConflictException('Akun dengan nama ini sudah terdaftar');
     }
 
     // Hash password
@@ -47,7 +47,7 @@ export class AuthService {
 
     // Return the formatted response
     return {
-      status: 200,
+      status: 201,
       message: "Berhasil Membuat Akun",
       data: {
         user_id: user.id,
@@ -66,13 +66,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Tidak ada akun dengan username ini');
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Password salah');
     }
 
     // Generate tokens
