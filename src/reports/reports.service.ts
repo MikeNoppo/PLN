@@ -300,50 +300,41 @@ export class ReportsService {
   }
 
 
-  async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
-    const { page = 1, limit = 10 } = paginationQuery;
-    const skip = (page - 1) * limit;
+async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
+  const { page = 1, limit = 10 } = paginationQuery;
+  const skip = (page - 1) * limit;
 
-    // First, fetch all active reports
-    const [allData] = await Promise.all([
-      this.prisma.laporanYantek.findMany({
-        orderBy: {
-          createdAt: 'desc',
+  // First, fetch all active reports - properly destructure both results
+  const [allData, totalCount] = await Promise.all([
+    this.prisma.laporanYantek.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      where: {
+        status_laporan: {
+          in: [StatusLaporan.BARU],
         },
-        where: {
-          status_laporan: {
-            in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
+      },
+      include: {
+        activityLogs: {
+          where: {
+            activityType: ActivityType.REPORT_CREATED,
           },
+          select: {
+            relatedUserId: true,
+          },
+          take: 1,
         },
-        include: {
-          laporan_penyambungan: {
-            select: {
-              createdAt: true,
-              nama_petugas: true,
-              foto_pemasangan_meter: true,
-              foto_rumah_pelanggan: true,
-              foto_ba_pemasangan: true,
-            },
-          },
-          activityLogs: {
-            where: {
-              activityType: ActivityType.REPORT_CREATED,
-            },
-            select: {
-              relatedUserId: true,
-            },
-            take: 1,
-          },
+      },
+    }),
+    this.prisma.laporanYantek.count({
+      where: {
+        status_laporan: {
+          in: [StatusLaporan.BARU],
         },
-      }),
-      this.prisma.laporanYantek.count({
-        where: {
-          status_laporan: {
-            in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
-          },
-        },
-      }),
-    ]);
+      },
+    }),
+  ]);
 
     // Then filter in the application layer based on role and userId
     let filteredData = [...allData];
