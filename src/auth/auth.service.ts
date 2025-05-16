@@ -90,7 +90,7 @@ export class AuthService {
       message: "Login berhasil",
       data: {
         user_id: user.id,
-        username: user.username,
+        fullname: user.name,
         role: user.role,
         token: {
           access_token: tokens.access_token,

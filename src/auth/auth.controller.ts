@@ -41,7 +41,7 @@ export class AuthController {
       message: "Login berhasil",
       data: {
         user_id: loginResult.data.user_id,
-        username: loginResult.data.username,
+        fullname: loginResult.data.fullname,
         role: loginResult.data.role,
       }
     };
@@ -102,7 +102,7 @@ export class AuthController {
       message: "Login berhasil",
       data: {
         user_id: loginResult.data.user_id,
-        username: loginResult.data.username,
+        fullname: loginResult.data.fullname,
         role: loginResult.data.role,
         access_token: loginResult.data.token.access_token,
         refresh_token: loginResult.data.token.refresh_token,
