@@ -55,71 +55,63 @@ model User {
   createdAt  DateTime  @default(now())
   role       UserRole
   lastOnline DateTime?
-
-  relatedActivityLogs ActivityLog[]
-  tokens     Token[]
+  
+  tokens              Token[]
 
   @@index([role])
 }
 
 model LaporanYantek {
-  id                      String       @id @unique
-  ID_Pelanggan            String
-  nomor_meter             String
-  tipe_meter              TipeMeter
-  no_telepon_pelanggan    String
-  nama_petugas            String
-  foto_rumah              String
-  foto_meter_rusak        String
-  stand_meter_cabut       String?
-  sisa_pulsa              String?
-  foto_ba_gangguan        String
-  titik_koordinat         String
-  status_laporan          StatusLaporan @default(BARU)
-  keterangan              String?
-  createdAt               DateTime     @default(now())
+  id                   String        @id @unique
+  ID_Pelanggan         String
+  nomor_meter          String
+  tipe_meter           TipeMeter
+  no_telepon_pelanggan String
+  nama_petugas         String
+  foto_rumah           String
+  foto_meter_rusak     String
+  stand_meter_cabut    String?
+  sisa_pulsa           String?
+  foto_ba_gangguan     String
+  titik_koordinat      String
+  status_laporan       StatusLaporan @default(BARU)
+  keterangan           String?
+  createdAt            DateTime      @default(now())
+
+  laporan_penyambungan LaporanPenyambungan?
 
   @@index([status_laporan]) // Added index for status filtering
   @@index([createdAt]) // Added index for ordering
-
-  laporan_penyambungan    LaporanPenyambungan?
-  activityLogs ActivityLog[] @relation("YantekLogs")
 }
 
 model LaporanPenyambungan {
-  id                      String       @id
-  laporan_yante_id        String       @unique
-  foto_pemasangan_meter   String
-  foto_rumah_pelanggan    String
-  foto_ba_pemasangan      String
-  nama_petugas            String
-  status_laporan          StatusLaporan @default(SELESAI)
-  createdAt               DateTime     @default(now())
+  id                    String        @id
+  laporan_yante_id      String        @unique
+  foto_pemasangan_meter String
+  foto_rumah_pelanggan  String
+  foto_ba_pemasangan    String
+  nama_petugas          String
+  status_laporan        StatusLaporan @default(SELESAI)
+  createdAt             DateTime      @default(now())
+
+  laporan_yante LaporanYantek @relation(fields: [laporan_yante_id], references: [id], onDelete: Cascade)
 
   @@index([laporan_yante_id]) // Explicitly added index for foreign key/unique field
-
-  laporan_yante           LaporanYantek  @relation(fields: [laporan_yante_id], references: [id], onDelete: Cascade)
-  activityLogs ActivityLog[] @relation("PenyambunganLogs")
 }
 
 model ActivityLog {
-  id                      String        @id @default(cuid())
-  activityType            ActivityType
-  timestamp               DateTime      @default(now())
-  message                 String?
+  id           String       @id @default(cuid())
+  activityType ActivityType
+  timestamp    DateTime     @default(now())
+  message      String?
 
-  deletedReportId         String? // Tambahan untuk log penghapusan
-  relatedYantekReportId   String?
-  relatedYantekReport     LaporanYantek? @relation("YantekLogs", fields: [relatedYantekReportId], references: [id], onDelete: SetNull)
-
-  relatedPenyambunganReportId String?
-  relatedPenyambunganReport LaporanPenyambungan? @relation("PenyambunganLogs", fields: [relatedPenyambunganReportId], references: [id], onDelete: SetNull)
-
-  relatedUserId           String?
-  relatedUser             User?         @relation(fields: [relatedUserId], references: [id], onDelete: SetNull)
+  deletedReportId             String? 
+  createdYantekReportId       String? 
+  createdPenyambunganReportId String? 
+  createdByUserId             String? 
 
   @@index([timestamp])
-  @@index([relatedYantekReportId])
-  @@index([relatedPenyambunganReportId])
-  @@index([relatedUserId])
+  @@index([createdYantekReportId])
+  @@index([createdPenyambunganReportId])
+  @@index([createdByUserId])
 }

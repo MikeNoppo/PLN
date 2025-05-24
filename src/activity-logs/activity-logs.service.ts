@@ -9,19 +9,19 @@ export class ActivityLogsService {
   async createLog(data: {
     activityType: ActivityType;
     message?: string;
-    relatedUserId?: string;
-    relatedYantekReportId?: string;
-    relatedPenyambunganReportId?: string;
+    createdByUserId?: string;
+    createdYantekReportId?: string;
+    createdPenyambunganReportId?: string;
     deletedReportId?: string; // <--- tambahkan properti baru
   }) {
     return this.prisma.activityLog.create({
       data: {
         activityType: data.activityType,
         message: data.message,
-        relatedUserId: data.relatedUserId,
-        relatedYantekReportId: data.relatedYantekReportId,
-        relatedPenyambunganReportId: data.relatedPenyambunganReportId,
-        deletedReportId: data.deletedReportId, // <--- simpan ke DB
+        createdByUserId: data.createdByUserId,
+        createdYantekReportId: data.createdYantekReportId,
+        createdPenyambunganReportId: data.createdPenyambunganReportId,
+        deletedReportId: data.deletedReportId, 
       },
     });
   }
@@ -47,18 +47,7 @@ export class ActivityLogsService {
         timestamp: 'desc', // Newest first
       },
       take: limit, // Apply the limit
-      include: { // Include related user data
-        relatedUser: {
-          select: {
-            id: true,
-            name: true, // Select the user's name
-            // username: true, // Optionally include username if needed
-          },
-        },
-        // Keep other includes commented out unless needed
-        // relatedYantekReport: { select: { id: true } },
-        // relatedPenyambunganReport: { select: { id: true } },
-      },
+
     });
 
     return logs;

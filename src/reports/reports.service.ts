@@ -137,8 +137,9 @@ export class ReportsService {
       if (userId && report) { // Check if report was successfully created
         await this.activityLogsService.createLog({
           activityType: ActivityType.REPORT_CREATED,
-          relatedYantekReportId: report.id, // Use the ID from the created report
-          relatedUserId: userId,
+          createdYantekReportId: report.id, // Use the ID from the created report
+          deletedReportId:report.id,
+          createdByUserId: userId,
           message: `Laporan Yantek baru [${report.id}] dibuat.`,
         }).catch(logError => {
           // Log error but don't fail the whole operation if logging fails
@@ -260,9 +261,9 @@ export class ReportsService {
         if (userId && result) { // Check if transaction was successful and result exists
           await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_COMPLETED,
-            relatedYantekReportId: createPenyambunganDto.laporan_yante_id,
-            relatedPenyambunganReportId: result.id, // Use ID from transaction result
-            relatedUserId: userId,
+            createdYantekReportId: createPenyambunganDto.laporan_yante_id,
+            createdPenyambunganReportId: result.id, // Use ID from transaction result
+            createdByUserId: userId,
             message: `Laporan [${createPenyambunganDto.laporan_yante_id}] diselesaikan via penyambungan [${result.id}].`,
           }).catch(logError => {
             // Log error but don't fail the whole operation if logging fails
@@ -315,17 +316,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
           in: [StatusLaporan.BARU],
         },
       },
-      include: {
-        activityLogs: {
-          where: {
-            activityType: ActivityType.REPORT_CREATED,
-          },
-          select: {
-            relatedUserId: true,
-          },
-          take: 1,
-        },
-      },
+      // Tidak ada include activityLogs karena tidak ada relasi
     }),
     this.prisma.laporanYantek.count({
       where: {
@@ -336,26 +327,27 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     }),
   ]);
 
-    // Then filter in the application layer based on role and userId
+    // Jika filtering by userId diperlukan, lakukan query activity log terpisah
     let filteredData = [...allData];
-    
-    // If user is PETUGAS_YANTEK, only show reports they created
     if (userRole === UserRole.PETUGAS_YANTEK && userId) {
-      filteredData = allData.filter(report => {
-        // Check if the report was created by this user
-        return report.activityLogs.some(log => log.relatedUserId === userId);
+      // Query activity log untuk dapatkan id laporan yang dibuat user ini
+      const userLogs = await this.prisma.activityLog.findMany({
+        where: {
+          activityType: ActivityType.REPORT_CREATED,
+          createdByUserId: userId,
+        },
+        select: { createdYantekReportId: true },
       });
+      const allowedIds = userLogs.map(log => log.createdYantekReportId).filter(Boolean);
+      filteredData = allData.filter(report => allowedIds.includes(report.id));
     }
     // Apply pagination after filtering
     const paginatedData = filteredData.slice(skip, skip + limit);
     const filteredTotal = filteredData.length;
     const totalPages = Math.ceil(filteredTotal / limit);
 
-    // Map the data to remove the activityLogs which was only used for filtering
-    const data = paginatedData.map(item => {
-      const { activityLogs, ...rest } = item;
-      return rest;
-    });
+    // Tidak perlu mapping activityLogs
+    const data = paginatedData;
 
     return {
       data,
@@ -390,9 +382,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         this.logger.log(`User ID ${userId} provided, proceeding to create delete log for report ${id}.`);
         await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_DELETED,
-            relatedYantekReportId: id,
+            createdYantekReportId: id,
             deletedReportId: id, // <-- simpan ID laporan yang dihapus
-            relatedUserId: userId,
+            createdByUserId: userId,
             message: `Laporan Yantek [${id}] dihapus.`,
         }).catch(logError => { 
             this.logger.error(`Failed log deletion for report ${id}:`, logError); 
@@ -479,22 +471,22 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         if (shouldLogCompletion) {
           await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_COMPLETED,
-            relatedYantekReportId: id,
-            relatedUserId: userId,
+            createdYantekReportId: id,
+            createdByUserId: userId,
             message: `Laporan [${id}] status diubah menjadi SELESAI (dari ${previousStatus}).`,
           }).catch(logError => { this.logger.error(`Failed log completion for ${id}:`, logError); });
         } else if (shouldLogProcessing) {
           await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_PROCESSED,
-            relatedYantekReportId: id,
-            relatedUserId: userId,
+            createdYantekReportId: id,
+            createdByUserId: userId,
             message: `Laporan [${id}] status diubah menjadi DIPROSES (dari ${previousStatus}).`,
           }).catch(logError => { this.logger.error(`Failed log processing for ${id}:`, logError); });
         } else if (shouldLogGenericUpdate) { 
           await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_UPDATED, 
-            relatedYantekReportId: id,
-            relatedUserId: userId,
+            createdYantekReportId: id,
+            createdByUserId: userId,
             message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
           }).catch(logError => { this.logger.error(`Failed log status update for ${id}:`, logError); });
         }
@@ -522,8 +514,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         where: {
           status_laporan: StatusLaporan.SELESAI,
           NOT: { laporan_penyambungan: null },
-        },
-        include: {
+        },        include: {
           laporan_penyambungan: {
             select: {
               createdAt: true,
@@ -533,16 +524,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
               foto_ba_pemasangan: true,
               status_laporan: true,
             },
-          },
-          activityLogs: {
-            where: {
-              activityType: ActivityType.REPORT_CREATED,
-            },
-            select: {
-              relatedUserId: true,
-            },
-            take: 1,
-          },
+          }
         },
       }),
       this.prisma.laporanYantek.count({
@@ -558,10 +540,16 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     
     // If user is PETUGAS_YANTEK, only show reports they created
     if (userRole === UserRole.PETUGAS_YANTEK && userId) {
-      filteredData = allData.filter(report => {
-        // Check if the report was created by this user
-        return report.activityLogs.some(log => log.relatedUserId === userId);
+      // Query activity log untuk dapatkan id laporan yang dibuat user ini
+      const userLogs = await this.prisma.activityLog.findMany({
+        where: {
+          activityType: ActivityType.REPORT_CREATED,
+          createdByUserId: userId,
+        },
+        select: { createdYantekReportId: true },
       });
+      const allowedIds = userLogs.map(log => log.createdYantekReportId).filter(Boolean);
+      filteredData = allData.filter(report => allowedIds.includes(report.id));
     }
     // ADMIN sees everything (no filtering)
 
@@ -571,10 +559,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     const totalPages = Math.ceil(filteredTotal / limit);
 
     // Map the data to remove the activityLogs which was only used for filtering
-    const data = paginatedData.map(item => {
-      const { activityLogs, ...rest } = item;
-      return rest;
-    });
+    const data = paginatedData;
 
     return {
       data,
@@ -606,29 +591,25 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
               keterangan: true,
             },
           },
-          activityLogs: {
-            where: {
-              activityType: ActivityType.REPORT_COMPLETED,
-            },
-            select: {
-              relatedUserId: true,
-            },
-            take: 1,
-          },
         },
       }),
       this.prisma.laporanPenyambungan.count(),
     ]);
-
     // Then filter in the application layer based on role and userId
     let filteredData = [...allData];
     
     // If user is PETUGAS_PENYAMBUNGAN, only show reports they created
     if (userRole === UserRole.PETUGAS_PENYAMBUNGAN && userId) {
-      filteredData = allData.filter(report => {
-        // Check if the report was completed by this user
-        return report.activityLogs.some(log => log.relatedUserId === userId);
+      // Query activity log untuk dapatkan id laporan penyambungan yang dibuat user ini
+      const userLogs = await this.prisma.activityLog.findMany({
+        where: {
+          activityType: ActivityType.REPORT_COMPLETED,
+          createdByUserId: userId,
+        },
+        select: { createdPenyambunganReportId: true },
       });
+      const allowedIds = userLogs.map(log => log.createdPenyambunganReportId).filter(Boolean);
+      filteredData = allData.filter(report => allowedIds.includes(report.id));
     }
     // ADMIN sees everything (no filtering)
 
@@ -638,10 +619,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     const totalPages = Math.ceil(filteredTotal / limit);
 
     // Map the data to remove the activityLogs which was only used for filtering
-    const data = paginatedData.map(item => {
-      const { activityLogs, ...rest } = item;
-      return rest;
-    });
+    const data = paginatedData;
 
     return {
       data,
