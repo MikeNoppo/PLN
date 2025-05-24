@@ -391,6 +391,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         await this.activityLogsService.createLog({
             activityType: ActivityType.REPORT_DELETED,
             relatedYantekReportId: id,
+            deletedReportId: id, // <-- simpan ID laporan yang dihapus
             relatedUserId: userId,
             message: `Laporan Yantek [${id}] dihapus.`,
         }).catch(logError => { 

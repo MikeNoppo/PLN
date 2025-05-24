@@ -12,6 +12,7 @@ export class ActivityLogsService {
     relatedUserId?: string;
     relatedYantekReportId?: string;
     relatedPenyambunganReportId?: string;
+    deletedReportId?: string; // <--- tambahkan properti baru
   }) {
     return this.prisma.activityLog.create({
       data: {
@@ -20,6 +21,7 @@ export class ActivityLogsService {
         relatedUserId: data.relatedUserId,
         relatedYantekReportId: data.relatedYantekReportId,
         relatedPenyambunganReportId: data.relatedPenyambunganReportId,
+        deletedReportId: data.deletedReportId, // <--- simpan ke DB
       },
     });
   }

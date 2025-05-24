@@ -108,6 +108,7 @@ model ActivityLog {
   timestamp               DateTime      @default(now())
   message                 String?
 
+  deletedReportId         String? // Tambahan untuk log penghapusan
   relatedYantekReportId   String?
   relatedYantekReport     LaporanYantek? @relation("YantekLogs", fields: [relatedYantekReportId], references: [id], onDelete: SetNull)
 
