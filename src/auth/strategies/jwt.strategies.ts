@@ -20,7 +20,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     private prisma: PrismaService,
   ) {
     super({
-      // Try extracting from header first (for mobile), then from cookie (for web)
       jwtFromRequest: ExtractJwt.fromExtractors([
         ExtractJwt.fromAuthHeaderAsBearerToken(),
         (request: Request) => request?.cookies?.access_token,
@@ -38,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       select : {
         id: true,
         username: true,
+        name: true, 
         role: true,
       },
     });
@@ -50,6 +50,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     return{
       id : user.id,
       username : user.username,
+      name: user.name,
       role : user.role,
     };
   }

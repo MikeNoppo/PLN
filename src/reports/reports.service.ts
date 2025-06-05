@@ -573,6 +573,59 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     };
   }
 
+  async findYantekHistoryForPetugas(paginationQuery: PaginationQueryDto, userFullname: string) { // Changed userId to userFullname
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
+
+    // No need to query ActivityLog here as LaporanYantek directly contains nama_petugas
+
+    // Fetch SELESAI LaporanYantek that were created by this user (based on nama_petugas)
+    const [data, totalItems] = await Promise.all([
+      this.prisma.laporanYantek.findMany({
+        where: {
+          nama_petugas: userFullname, // Filter by nama_petugas
+          status_laporan: StatusLaporan.SELESAI,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: { // Include details similar to findHistory for consistency
+          laporan_penyambungan: {
+            select: {
+              createdAt: true,
+              nama_petugas: true,
+              foto_pemasangan_meter: true,
+              foto_rumah_pelanggan: true,
+              foto_ba_pemasangan: true,
+              status_laporan: true,
+            },
+          },
+        },
+        skip: skip,
+        take: limit,
+      }),
+      this.prisma.laporanYantek.count({
+        where: {
+          nama_petugas: userFullname, // Filter by nama_petugas for count
+          status_laporan: StatusLaporan.SELESAI,
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
+
   async findPenyambunganReports(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
@@ -625,6 +678,88 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       data,
       meta: {
         totalItems: filteredTotal,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
+
+  async findPenyambunganHistoryForPetugas(paginationQuery: PaginationQueryDto, userId: string) {
+    const { page = 1, limit = 10 } = paginationQuery;
+    const skip = (page - 1) * limit;
+
+    // 1. Get IDs of LaporanPenyambungan completed by this PETUGAS_PENYAMBUNGAN
+    const userCompletedLogs = await this.prisma.activityLog.findMany({
+      where: {
+        createdByUserId: userId,
+        activityType: ActivityType.REPORT_COMPLETED,
+        NOT: { createdPenyambunganReportId: null }, // Ensure it's a penyambungan completion log
+      },
+      select: {
+        createdPenyambunganReportId: true,
+      },
+    });
+
+    const completedPenyambunganIds = userCompletedLogs
+      .map(log => log.createdPenyambunganReportId)
+      .filter(id => id !== null) as string[];
+
+    if (completedPenyambunganIds.length === 0) {
+      return {
+        data: [],
+        meta: {
+          totalItems: 0,
+          itemCount: 0,
+          itemsPerPage: limit,
+          totalPages: 0,
+          currentPage: page,
+        },
+      };
+    }
+
+    // 2. Fetch LaporanPenyambungan that were completed by this user
+    const [data, totalItems] = await Promise.all([
+      this.prisma.laporanPenyambungan.findMany({
+        where: {
+          id: {
+            in: completedPenyambunganIds,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: { // Include details of the related LaporanYantek
+          laporan_yante: {
+            select: {
+              ID_Pelanggan: true,
+              nomor_meter: true,
+              tipe_meter: true,
+              no_telepon_pelanggan: true,
+              keterangan: true,
+              // Anda bisa menambahkan field lain dari LaporanYantek jika diperlukan
+            },
+          },
+        },
+        skip: skip,
+        take: limit,
+      }),
+      this.prisma.laporanPenyambungan.count({
+        where: {
+          id: {
+            in: completedPenyambunganIds,
+          },
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
         itemCount: data.length,
         itemsPerPage: limit,
         totalPages,

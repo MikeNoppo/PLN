@@ -13,6 +13,7 @@ import {
   Res,
   StreamableFile,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from './reports.service'; 
@@ -30,6 +31,7 @@ import { UserRole } from '@prisma/client';
 import { Response, Request } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { User } from '../auth/decorators/user.decorator'; // Added User decorator import
 
 // Define an interface for the expected user payload in the request
 interface AuthenticatedRequest extends Request {
@@ -181,5 +183,31 @@ export class ReportsController {
   ) {
     const userId = req.user?.id;
     return this.reportsService.updateStatus(id, updateReportStatusDto, userId);
+  }
+
+  @Get('yantek-history/petugas')
+  @Roles(UserRole.PETUGAS_YANTEK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  findYantekHistoryForPetugas(
+    @Query() paginationQuery: PaginationQueryDto,
+    @User('name') userFullname: string, // Changed from @User('fullname') to @User('name')
+  ) {
+    if (!userFullname) { // Check userFullname (which now comes from req.user.name)
+      throw new BadRequestException('User name is required for PETUGAS_YANTEK history.'); // Updated error message
+    }
+    return this.reportsService.findYantekHistoryForPetugas(paginationQuery, userFullname);
+  }
+
+  @Get('penyambungan-history/petugas')
+  @Roles(UserRole.PETUGAS_PENYAMBUNGAN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  findPenyambunganHistoryForPetugas(
+    @Query() paginationQuery: PaginationQueryDto,
+    @User('name') userId: string,
+  ) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required for PETUGAS_PENYAMBUNGAN');
+    }
+    return this.reportsService.findPenyambunganHistoryForPetugas(paginationQuery, userId);
   }
 }
