@@ -16,7 +16,7 @@ import { ReportSummaryService } from './services/report-summary.service';
     MulterModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
         limits: {
-          fileSize: configService.get<number>('MAX_FILE_SIZE', 5) * 1024 * 1024, 
+          fileSize: 100 * 1024 * 1024, // 100 MB
         },
       }),
       inject: [ConfigService],
