@@ -4,10 +4,12 @@ import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { extractTokenFromRequest } from '../../utils/token.utils';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'refresh-token') {
-  constructor(private configService: ConfigService) {
+  constructor(private configService: ConfigService,private readonly logger: Logger = new Logger(RefreshTokenStrategy.name) 
+  ){
     super({
       jwtFromRequest: extractTokenFromRequest,
       ignoreExpiration: false,
@@ -20,7 +22,7 @@ export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'refresh-to
     // Use the same token extractor for consistency
     const refreshToken = extractTokenFromRequest(req);
     if (!refreshToken) {
-      console.error('Refresh token not found in request during strategy validation');
+      this.logger.error('Refresh token not found in request during strategy validation');
       return null; 
     }
     return {

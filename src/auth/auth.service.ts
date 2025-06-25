@@ -139,7 +139,6 @@ export class AuthService {
 
       if (!matchedTokenRecord) {
         this.logger.warn(`Refresh token does not match any stored tokens for user ${payload.sub}`);
-        throw new UnauthorizedException('Invalid refresh token provided.');
       }
 
       // Fetch user info before transaction
