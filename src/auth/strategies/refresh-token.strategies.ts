@@ -8,8 +8,9 @@ import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'refresh-token') {
-  constructor(private configService: ConfigService,private readonly logger: Logger = new Logger(RefreshTokenStrategy.name) 
-  ){
+  private readonly logger = new Logger(RefreshTokenStrategy.name);
+
+  constructor(private configService: ConfigService) {
     super({
       jwtFromRequest: extractTokenFromRequest,
       ignoreExpiration: false,
