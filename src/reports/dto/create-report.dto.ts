@@ -3,11 +3,9 @@ import { TipeMeter } from '@prisma/client';
 
 export class CreateReportDto {
   @IsString()
-  @IsNotEmpty()
   ID_Pelanggan: string;
 
   @IsString()
-  @IsNotEmpty()
   nomor_meter: string;
 
   @IsEnum(TipeMeter)

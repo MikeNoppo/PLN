@@ -187,23 +187,20 @@ export class ReportsController {
 
   @Get('yantek-history/petugas')
   @Roles(UserRole.PETUGAS_YANTEK)
-  @UseGuards(JwtAuthGuard, RolesGuard)
   findYantekHistoryForPetugas(
     @Query() paginationQuery: PaginationQueryDto,
-    @User('name') userFullname: string, // Changed from @User('fullname') to @User('name')
+    @User('name') userFullname: string, 
   ) {
-    if (!userFullname) { // Check userFullname (which now comes from req.user.name)
-      throw new BadRequestException('User name is required for PETUGAS_YANTEK history.'); // Updated error message
+    if (!userFullname) { 
+      throw new BadRequestException('User name is required for PETUGAS_YANTEK history.'); 
     }
     return this.reportsService.findYantekHistoryForPetugas(paginationQuery, userFullname);
   }
-
   @Get('penyambungan-history/petugas')
   @Roles(UserRole.PETUGAS_PENYAMBUNGAN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
   findPenyambunganHistoryForPetugas(
     @Query() paginationQuery: PaginationQueryDto,
-    @User('name') userId: string,
+    @User('id') userId: string,
   ) {
     if (!userId) {
       throw new BadRequestException('User ID is required for PETUGAS_PENYAMBUNGAN');

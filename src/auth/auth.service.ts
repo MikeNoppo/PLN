@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +9,8 @@ import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -99,9 +101,10 @@ export class AuthService {
       }
     };
   }
-
   async refreshToken(refreshToken: string) {
+    
     if (!refreshToken) {
+      this.logger.warn('Refresh token not provided in request');
       throw new UnauthorizedException('Refresh token not found in request');
     }
 
@@ -122,6 +125,7 @@ export class AuthService {
       });
 
       if (!userTokens || userTokens.length === 0) {
+        this.logger.warn(`No valid refresh tokens found for user ${payload.sub}`);
         throw new UnauthorizedException('No valid refresh tokens found for user.');
       }
 
@@ -134,7 +138,7 @@ export class AuthService {
       }
 
       if (!matchedTokenRecord) {
-        throw new UnauthorizedException('Invalid refresh token provided.');
+        this.logger.warn(`Refresh token does not match any stored tokens for user ${payload.sub}`);
       }
 
       // Fetch user info before transaction
