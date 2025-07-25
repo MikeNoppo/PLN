@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { ReportsModule } from './reports/reports.module';
 import { ConfigModule } from '@nestjs/config';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { AppUpdateModule } from './app-update/app-update.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
     UsersModule,
     ReportsModule,
     ActivityLogsModule,
+    AppUpdateModule,
   ],
   // Apply ThrottlerGuard globally to all endpoints
   providers: [
