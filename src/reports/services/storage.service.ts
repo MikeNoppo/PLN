@@ -11,6 +11,7 @@ export class StorageService {
     house: 'house-photos',
     meter: 'meter-photos',
     document: 'documents',
+    petugas: 'petugas-photos',
     penyambungan_meter: 'penyambungan-meter', 
     penyambungan_rumah: 'penyambungan-rumah', 
     penyambungan_ba: 'penyambungan-ba'        
@@ -35,7 +36,7 @@ export class StorageService {
 
   async saveFile(
     file: Buffer,
-    type: 'house' | 'meter' | 'document' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba',
+    type: 'house' | 'meter' | 'document' | 'petugas' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba',
     originalName: string
   ): Promise<string> {
     try {

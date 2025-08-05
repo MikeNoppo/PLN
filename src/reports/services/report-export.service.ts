@@ -72,6 +72,7 @@ export class ReportExportService {
             nama_petugas: true,
             foto_pemasangan_meter: true,
             foto_rumah_pelanggan: true,
+            foto_petugas: true,
             foto_ba_pemasangan: true,
           },
         },
@@ -91,7 +92,7 @@ export class ReportExportService {
       const worksheet = workbook.addWorksheet('Laporan PLN');
 
       // --- Template (Optional - Basic Title) ---
-      worksheet.mergeCells('A1:N1'); // Adjusted merge range for new column
+      worksheet.mergeCells('A1:P1'); // Adjusted merge range for new columns
       worksheet.getCell('A1').value = 'Laporan Yantek dan Penyambungan';
       worksheet.getCell('A1').font = { size: 16, bold: true };
       worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -100,8 +101,8 @@ export class ReportExportService {
       // --- Header Row ---
       const headerRow = worksheet.addRow([
         'No', 'ID Laporan', 'IDPEL', 'Nomor Meter', 'Tipe Meter', 'Tgl Lap. Yantek', 'Tgl Lap. Penyambungan',
-        'Petugas Yantek', 'Petugas Penyambungan', 'Foto Rumah', 'Foto Meter Rusak',
-        'Foto BA Gangguan', 'Foto Pasang Meter', 'Foto Rumah Pelanggan', 'Foto BA Pasang',
+        'Petugas Yantek', 'Petugas Penyambungan', 'Foto Rumah', 'Foto Meter Rusak', 'Foto Petugas Yantek',
+        'Foto BA Gangguan', 'Foto Pasang Meter', 'Foto Rumah Pelanggan', 'Foto Petugas Penyambungan', 'Foto BA Pasang',
         'Status Laporan', 'Keterangan' // Added Keterangan
       ]);
 
@@ -144,7 +145,7 @@ export class ReportExportService {
       };
 
       // Set column width untuk kolom gambar (J=10, K=11, dst)
-      [10, 11, 12, 13, 14, 15].forEach((colIdx) => {
+      [10, 11, 12, 13, 14, 15, 16, 17].forEach((colIdx) => {
         worksheet.getColumn(colIdx).width = 25;
       });
 
@@ -178,9 +179,11 @@ export class ReportExportService {
           penyambungan?.nama_petugas || '-',
           '', // Foto Rumah
           '', // Foto Meter Rusak
+          '', // Foto Petugas Yantek
           '', // Foto BA Gangguan
           '', // Foto Pasang Meter
           '', // Foto Rumah Pelanggan
+          '', // Foto Petugas Penyambungan
           '', // Foto BA Pasang
           report.status_laporan,
           report.keterangan || '-', // Added Keterangan
@@ -195,18 +198,20 @@ export class ReportExportService {
         // Specific alignment for No column
         row.getCell(1).alignment = { vertical: 'top', horizontal: 'center' };
         // Specific alignment for Status Laporan
-        row.getCell(16).alignment = { vertical: 'top', horizontal: 'center' };
+        row.getCell(18).alignment = { vertical: 'top', horizontal: 'center' };
 
         // Set row height agar gambar muat thumbnail
         worksheet.getRow(excelRow).height = 100; 
 
-        // Embed images (J=10, K=11, L=12, M=13, N=14, O=15)
+        // Embed images (J=10, K=11, L=12, M=13, N=14, O=15, P=16, Q=17)
         const imageFields = [
           report.foto_rumah,
           report.foto_meter_rusak,
+          report.foto_petugas,
           report.foto_ba_gangguan,
           penyambungan?.foto_pemasangan_meter,
           penyambungan?.foto_rumah_pelanggan,
+          penyambungan?.foto_petugas,
           penyambungan?.foto_ba_pemasangan,
         ];
         imageFields.forEach((imgPath, i) => {
@@ -247,9 +252,11 @@ export class ReportExportService {
         { key: 'petugasPenyambungan', width: 20 },
         { key: 'fotoRumah', width: 20 },
         { key: 'fotoMeterRusak', width: 20 },
+        { key: 'fotoPetugasYantek', width: 20 },
         { key: 'fotoBaGangguan', width: 20 },
         { key: 'fotoPasangMeter', width: 20 },
         { key: 'fotoRumahPelanggan', width: 20 },
+        { key: 'fotoPetugasPenyambungan', width: 20 },
         { key: 'fotoBaPasang', width: 20 },
         { key: 'status', width: 15 },
         { key: 'keterangan', width: 30 }, // Added Keterangan
