@@ -70,6 +70,7 @@ model LaporanYantek {
   nama_petugas         String
   foto_rumah           String
   foto_meter_rusak     String
+  foto_petugas         String
   stand_meter_cabut    String?
   sisa_pulsa           String?
   foto_ba_gangguan     String
@@ -89,6 +90,7 @@ model LaporanPenyambungan {
   laporan_yante_id      String        @unique
   foto_pemasangan_meter String
   foto_rumah_pelanggan  String
+  foto_petugas          String
   foto_ba_pemasangan    String
   nama_petugas          String
   status_laporan        StatusLaporan @default(SELESAI)

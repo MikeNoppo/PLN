@@ -54,6 +54,7 @@ export class ReportsController {
     FileFieldsInterceptor([
       { name: 'foto_rumah', maxCount: 1 },
       { name: 'foto_meter_rusak', maxCount: 1 },
+      { name: 'foto_petugas', maxCount: 1 },
       { name: 'foto_ba_gangguan', maxCount: 1 },
     ])
   )
@@ -64,6 +65,7 @@ export class ReportsController {
     files: {
       foto_rumah?: Express.Multer.File[];
       foto_meter_rusak?: Express.Multer.File[];
+      foto_petugas?: Express.Multer.File[];
       foto_ba_gangguan?: Express.Multer.File[];
     },
   ) {
@@ -79,6 +81,7 @@ export class ReportsController {
     FileFieldsInterceptor([
       { name: 'foto_pemasangan_meter', maxCount: 1 },
       { name: 'foto_rumah_pelanggan', maxCount: 1 },
+      { name: 'foto_petugas', maxCount: 1 },
       { name: 'foto_ba_pemasangan', maxCount: 1 },
     ]),
   )
@@ -89,6 +92,7 @@ export class ReportsController {
     files: {
       foto_pemasangan_meter?: Express.Multer.File[];
       foto_rumah_pelanggan?: Express.Multer.File[];
+      foto_petugas?: Express.Multer.File[];
       foto_ba_pemasangan?: Express.Multer.File[];
     },
   ) {

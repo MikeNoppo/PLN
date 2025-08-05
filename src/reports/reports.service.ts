@@ -65,13 +65,15 @@ export class ReportsService {
   validateAndProcessYantekFiles(files: {
     foto_rumah?: Express.Multer.File[];
     foto_meter_rusak?: Express.Multer.File[];
+    foto_petugas?: Express.Multer.File[];
     foto_ba_gangguan?: Express.Multer.File[];
   }) {
-    FileValidator.validateRequiredFiles(files, ['foto_rumah', 'foto_meter_rusak', 'foto_ba_gangguan']);
+    FileValidator.validateRequiredFiles(files, ['foto_rumah', 'foto_meter_rusak', 'foto_petugas', 'foto_ba_gangguan']);
 
     const allFiles = [
       { name: 'foto rumah', file: files.foto_rumah[0] },
       { name: 'foto meter rusak', file: files.foto_meter_rusak[0] },
+      { name: 'foto petugas', file: files.foto_petugas[0] },
       { name: 'foto BA gangguan', file: files.foto_ba_gangguan[0] },
     ];
 
@@ -81,17 +83,20 @@ export class ReportsService {
   validateAndProcessPenyambunganFiles(files: {
     foto_pemasangan_meter?: Express.Multer.File[];
     foto_rumah_pelanggan?: Express.Multer.File[];
+    foto_petugas?: Express.Multer.File[];
     foto_ba_pemasangan?: Express.Multer.File[];
   }) {
     FileValidator.validateRequiredFiles(files, [
       'foto_pemasangan_meter',
       'foto_rumah_pelanggan',
+      'foto_petugas',
       'foto_ba_pemasangan'
     ]);
 
     const allFiles = [
       { name: 'foto pemasangan meter', file: files.foto_pemasangan_meter[0] },
       { name: 'foto rumah pelanggan', file: files.foto_rumah_pelanggan[0] },
+      { name: 'foto petugas', file: files.foto_petugas[0] },
       { name: 'foto BA pemasangan', file: files.foto_ba_pemasangan[0] },
     ];
 
@@ -103,14 +108,16 @@ export class ReportsService {
     files: {
       foto_rumah?: Express.Multer.File[],
       foto_meter_rusak?: Express.Multer.File[],
+      foto_petugas?: Express.Multer.File[],
       foto_ba_gangguan?: Express.Multer.File[]
     },
     userId?: string,
   ) {
     // Process and store files first (outside transaction)
-    const [fotoRumahPath, fotoMeterPath, fotoBaPath] = await Promise.all([
+    const [fotoRumahPath, fotoMeterPath, fotoPetugasPath, fotoBaPath] = await Promise.all([
       this.processAndSaveImage(files.foto_rumah[0], 'house'),
       this.processAndSaveImage(files.foto_meter_rusak[0], 'meter'),
+      this.processAndSaveImage(files.foto_petugas[0], 'petugas'),
       this.processAndSaveImage(files.foto_ba_gangguan[0], 'document'),
     ]);
 
@@ -126,6 +133,7 @@ export class ReportsService {
             ...createReportDto,
             foto_rumah: fotoRumahPath,
             foto_meter_rusak: fotoMeterPath,
+            foto_petugas: fotoPetugasPath,
             foto_ba_gangguan: fotoBaPath,
             status_laporan: StatusLaporan.BARU,
           },
@@ -159,6 +167,7 @@ export class ReportsService {
       await Promise.all([
         this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)),
         this.storageService.deleteFile(fotoMeterPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoMeterPath}: ${e}`)),
+        this.storageService.deleteFile(fotoPetugasPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`)),
         this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)),
       ]);
       // Re-throw the original error after cleanup attempt
@@ -169,7 +178,7 @@ export class ReportsService {
 
   private async processAndSaveImage(
     file: Express.Multer.File,
-    type: 'house' | 'meter' | 'document' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba'
+    type: 'house' | 'meter' | 'document' | 'petugas' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba'
   ): Promise<string> {
     const MAX_SIZE_WITHOUT_COMPRESSION = 50 * 1024 * 1024; // 50MB in bytes
 
@@ -190,6 +199,7 @@ export class ReportsService {
     files: {
       foto_pemasangan_meter?: Express.Multer.File[];
       foto_rumah_pelanggan?: Express.Multer.File[];
+      foto_petugas?: Express.Multer.File[];
       foto_ba_pemasangan?: Express.Multer.File[];
     },
     userId?: string,
@@ -218,12 +228,14 @@ export class ReportsService {
     // 3. Process and store files
     let fotoPemasanganPath: string | undefined;
     let fotoRumahPath: string | undefined;
+    let fotoPetugasPath: string | undefined;
     let fotoBaPath: string | undefined;
 
     try {
-      [fotoPemasanganPath, fotoRumahPath, fotoBaPath] = await Promise.all([
+      [fotoPemasanganPath, fotoRumahPath, fotoPetugasPath, fotoBaPath] = await Promise.all([
         this.processAndSaveImage(files.foto_pemasangan_meter[0], 'penyambungan_meter'),
         this.processAndSaveImage(files.foto_rumah_pelanggan[0], 'penyambungan_rumah'),
+        this.processAndSaveImage(files.foto_petugas[0], 'petugas'),
         this.processAndSaveImage(files.foto_ba_pemasangan[0], 'penyambungan_ba'),
       ]);
 
@@ -242,6 +254,7 @@ export class ReportsService {
               nama_petugas: createPenyambunganDto.nama_petugas,
               foto_pemasangan_meter: fotoPemasanganPath,
               foto_rumah_pelanggan: fotoRumahPath,
+              foto_petugas: fotoPetugasPath,
               foto_ba_pemasangan: fotoBaPath,
               status_laporan: StatusLaporan.SELESAI,
             },
@@ -283,6 +296,7 @@ export class ReportsService {
         await Promise.all([
           fotoPemasanganPath ? this.storageService.deleteFile(fotoPemasanganPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPemasanganPath}: ${e}`)) : Promise.resolve(),
           fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)) : Promise.resolve(),
+          fotoPetugasPath ? this.storageService.deleteFile(fotoPetugasPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`)) : Promise.resolve(),
           fotoBaPath ? this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)) : Promise.resolve(),
         ]);
         // Re-throw the original error after cleanup attempt
@@ -294,6 +308,7 @@ export class ReportsService {
       await Promise.all([
         fotoPemasanganPath ? this.storageService.deleteFile(fotoPemasanganPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPemasanganPath}: ${e}`)) : Promise.resolve(),
         fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)) : Promise.resolve(),
+        fotoPetugasPath ? this.storageService.deleteFile(fotoPetugasPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`)) : Promise.resolve(),
         fotoBaPath ? this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)) : Promise.resolve(),
       ]);
       throw error; // Re-throw the file processing error
@@ -397,13 +412,14 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     const fileDeletionResults = await Promise.all([
       this.storageService.deleteFile(report.foto_rumah),
       this.storageService.deleteFile(report.foto_meter_rusak),
+      this.storageService.deleteFile(report.foto_petugas),
       this.storageService.deleteFile(report.foto_ba_gangguan),
     ]);
 
     // Log any file deletion issues
     fileDeletionResults.forEach((result, index) => {
       if (result.error) {
-        const fileType = ['foto_rumah', 'foto_meter_rusak', 'foto_ba_gangguan'][index];
+        const fileType = ['foto_rumah', 'foto_meter_rusak', 'foto_petugas', 'foto_ba_gangguan'][index];
         this.logger.warn(`Issue deleting ${fileType} for report ${id}: ${result.error}`);
       }
     });
