@@ -614,6 +614,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
               foto_pemasangan_meter: true,
               foto_rumah_pelanggan: true,
               foto_ba_pemasangan: true,
+              foto_petugas: true,
               status_laporan: true,
             },
           },
