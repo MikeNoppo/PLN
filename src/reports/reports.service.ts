@@ -21,7 +21,6 @@ export class ReportsService {
     private readonly activityLogsService: ActivityLogsService,
   ) {}
 
-  // Modified to accept Prisma client (main or transaction)
   private async generateLaporanId(type: 'YT' | 'PS', prismaClient: Prisma.TransactionClient | PrismaService): Promise<string> {
     const date = new Date();
     const year = date.getFullYear();
@@ -34,7 +33,7 @@ export class ReportsService {
 
     const query = Prisma.sql`
       SELECT id 
-      FROM "${Prisma.raw(tableName)}"
+      FROM ${Prisma.raw(`"${tableName}"`)}
       WHERE id >= ${startRange}
         AND id <= ${endRange}
       ORDER BY id DESC 
