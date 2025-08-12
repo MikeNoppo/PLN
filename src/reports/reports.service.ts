@@ -247,28 +247,14 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     const { page = 1, limit = 10, status } = paginationQuery;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.LaporanYantekWhereInput = {
+    // Base filter by status
+    const baseWhere: Prisma.LaporanYantekWhereInput = {
       status_laporan: status ? status : { in: [StatusLaporan.BARU, StatusLaporan.DIPROSES] },
     };
 
-    // First, fetch all active reports - properly destructure both results
-    const [allData, totalCount] = await Promise.all([
-      this.prisma.laporanYantek.findMany({
-        orderBy: {
-          createdAt: 'desc',
-        },
-        where,
-        // Tidak ada include activityLogs karena tidak ada relasi
-      }),
-      this.prisma.laporanYantek.count({
-        where,
-      }),
-    ]);
-
-    // Jika filtering by userId diperlukan, lakukan query activity log terpisah
-    let filteredData = [...allData];
+    // Role-based filter pushed into DB
+    let where: Prisma.LaporanYantekWhereInput = { ...baseWhere };
     if (userRole === UserRole.PETUGAS_YANTEK && userId) {
-      // Query activity log untuk dapatkan id laporan yang dibuat user ini
       const userLogs = await this.prisma.activityLog.findMany({
         where: {
           activityType: ActivityType.REPORT_CREATED,
@@ -276,12 +262,24 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         },
         select: { createdYantekReportId: true },
       });
-      const allowedIds = userLogs.map(log => log.createdYantekReportId).filter(Boolean);
-      filteredData = allData.filter(report => allowedIds.includes(report.id));
+      const allowedIds = userLogs.map(l => l.createdYantekReportId).filter(Boolean) as string[];
+      if (allowedIds.length === 0) {
+        return { data: [], meta: buildMeta(0, page, limit, 0) };
+      }
+      where = { ...where, id: { in: allowedIds } };
     }
-  // Apply pagination after filtering
-  const { data, meta } = paginate(filteredData, page, limit);
-  return { data, meta };
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.laporanYantek.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.laporanYantek.count({ where }),
+    ]);
+
+    return { data, meta: buildMeta(totalItems, page, limit, data.length) };
   }
 
   async findOne(id: string) {
@@ -431,14 +429,33 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
-    // First fetch all completed reports with their relationship data
-    const [allData, totalItems] = await Promise.all([
-      this.prisma.laporanYantek.findMany({
-        orderBy: { createdAt: 'desc' },
+    // Base where: only completed Yantek that have penyambungan
+    let where: Prisma.LaporanYantekWhereInput = {
+      status_laporan: StatusLaporan.SELESAI,
+      NOT: { laporan_penyambungan: null },
+    };
+
+    // Role-based filter pushed into DB
+    if (userRole === UserRole.PETUGAS_YANTEK && userId) {
+      const userLogs = await this.prisma.activityLog.findMany({
         where: {
-          status_laporan: StatusLaporan.SELESAI,
-          NOT: { laporan_penyambungan: null },
-        },        include: {
+          activityType: ActivityType.REPORT_CREATED,
+          createdByUserId: userId,
+        },
+        select: { createdYantekReportId: true },
+      });
+      const allowedIds = userLogs.map(l => l.createdYantekReportId).filter(Boolean) as string[];
+      if (allowedIds.length === 0) {
+        return { data: [], meta: buildMeta(0, page, limit, 0) };
+      }
+      where = { ...where, id: { in: allowedIds } };
+    }
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.laporanYantek.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
           laporan_penyambungan: {
             select: {
               createdAt: true,
@@ -449,38 +466,15 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
               foto_petugas: true,
               status_laporan: true,
             },
-          }
+          },
         },
+        skip,
+        take: limit,
       }),
-      this.prisma.laporanYantek.count({
-        where: {
-          status_laporan: StatusLaporan.SELESAI,
-          NOT: { laporan_penyambungan: null },
-        },
-      }),
+      this.prisma.laporanYantek.count({ where }),
     ]);
 
-    // Then filter in the application layer based on role and userId
-    let filteredData = [...allData];
-    
-    // If user is PETUGAS_YANTEK, only show reports they created
-    if (userRole === UserRole.PETUGAS_YANTEK && userId) {
-      // Query activity log untuk dapatkan id laporan yang dibuat user ini
-      const userLogs = await this.prisma.activityLog.findMany({
-        where: {
-          activityType: ActivityType.REPORT_CREATED,
-          createdByUserId: userId,
-        },
-        select: { createdYantekReportId: true },
-      });
-      const allowedIds = userLogs.map(log => log.createdYantekReportId).filter(Boolean);
-      filteredData = allData.filter(report => allowedIds.includes(report.id));
-    }
-    // ADMIN sees everything (no filtering)
-
-  // Apply pagination after filtering
-  const { data, meta } = paginate(filteredData, page, limit);
-  return { data, meta };
+    return { data, meta: buildMeta(totalItems, page, limit, data.length) };
   }
 
   async findYantekHistoryForPetugas(paginationQuery: PaginationQueryDto, userFullname: string) { // Changed userId to userFullname
@@ -533,9 +527,25 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
-    // First fetch all penyambungan reports
-    const [allData, totalItems] = await Promise.all([
+    let where: Prisma.LaporanPenyambunganWhereInput = {};
+    if (userRole === UserRole.PETUGAS_PENYAMBUNGAN && userId) {
+      const userLogs = await this.prisma.activityLog.findMany({
+        where: {
+          activityType: ActivityType.REPORT_COMPLETED,
+          createdByUserId: userId,
+        },
+        select: { createdPenyambunganReportId: true },
+      });
+      const allowedIds = userLogs.map(l => l.createdPenyambunganReportId).filter(Boolean) as string[];
+      if (allowedIds.length === 0) {
+        return { data: [], meta: buildMeta(0, page, limit, 0) };
+      }
+      where = { id: { in: allowedIds } };
+    }
+
+    const [data, totalItems] = await Promise.all([
       this.prisma.laporanPenyambungan.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         include: {
           laporan_yante: {
@@ -548,30 +558,13 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
             },
           },
         },
+        skip,
+        take: limit,
       }),
-      this.prisma.laporanPenyambungan.count(),
+      this.prisma.laporanPenyambungan.count({ where }),
     ]);
-    // Then filter in the application layer based on role and userId
-    let filteredData = [...allData];
-    
-    // If user is PETUGAS_PENYAMBUNGAN, only show reports they created
-    if (userRole === UserRole.PETUGAS_PENYAMBUNGAN && userId) {
-      // Query activity log untuk dapatkan id laporan penyambungan yang dibuat user ini
-      const userLogs = await this.prisma.activityLog.findMany({
-        where: {
-          activityType: ActivityType.REPORT_COMPLETED,
-          createdByUserId: userId,
-        },
-        select: { createdPenyambunganReportId: true },
-      });
-      const allowedIds = userLogs.map(log => log.createdPenyambunganReportId).filter(Boolean);
-      filteredData = allData.filter(report => allowedIds.includes(report.id));
-    }
-    // ADMIN sees everything (no filtering)
 
-  // Apply pagination after filtering
-  const { data, meta } = paginate(filteredData, page, limit);
-  return { data, meta };
+    return { data, meta: buildMeta(totalItems, page, limit, data.length) };
   }
 
   async findPenyambunganHistoryForPetugas(paginationQuery: PaginationQueryDto, userId: string) {
