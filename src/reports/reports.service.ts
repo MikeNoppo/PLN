@@ -317,30 +317,26 @@ export class ReportsService {
 
 
 async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
-  const { page = 1, limit = 10 } = paginationQuery;
-  const skip = (page - 1) * limit;
+    const { page = 1, limit = 10, status } = paginationQuery;
+    const skip = (page - 1) * limit;
 
-  // First, fetch all active reports - properly destructure both results
-  const [allData, totalCount] = await Promise.all([
-    this.prisma.laporanYantek.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      where: {
-        status_laporan: {
-          in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
+    const where: Prisma.LaporanYantekWhereInput = {
+      status_laporan: status ? status : { in: [StatusLaporan.BARU, StatusLaporan.DIPROSES] },
+    };
+
+    // First, fetch all active reports - properly destructure both results
+    const [allData, totalCount] = await Promise.all([
+      this.prisma.laporanYantek.findMany({
+        orderBy: {
+          createdAt: 'desc',
         },
-      },
-      // Tidak ada include activityLogs karena tidak ada relasi
-    }),
-    this.prisma.laporanYantek.count({
-      where: {
-        status_laporan: {
-          in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
-        },
-      },
-    }),
-  ]);
+        where,
+        // Tidak ada include activityLogs karena tidak ada relasi
+      }),
+      this.prisma.laporanYantek.count({
+        where,
+      }),
+    ]);
 
     // Jika filtering by userId diperlukan, lakukan query activity log terpisah
     let filteredData = [...allData];

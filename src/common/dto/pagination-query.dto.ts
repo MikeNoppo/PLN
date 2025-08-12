@@ -1,5 +1,6 @@
-import { IsOptional, IsInt, Min } from 'class-validator';
+import { IsOptional, IsInt, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { StatusLaporan } from '@prisma/client';
 
 export class PaginationQueryDto {
   @IsOptional()
@@ -13,4 +14,8 @@ export class PaginationQueryDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @IsOptional()
+  @IsEnum(StatusLaporan)
+  status?: StatusLaporan;
 }
