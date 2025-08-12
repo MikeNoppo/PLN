@@ -9,6 +9,9 @@ import { ConfigService } from '@nestjs/config';
 import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
 import { ReportExportService } from './services/report-export.service';
 import { ReportSummaryService } from './services/report-summary.service';
+import { ReportIdService } from './services/report-id.service';
+import { ReportFileService } from './services/report-file.service';
+import { ReportValidationService } from './services/report-validation.service';
 
 @Module({
   imports: [
@@ -29,12 +32,18 @@ import { ReportSummaryService } from './services/report-summary.service';
     ImageService,
     StorageService,
     ReportExportService,
-    ReportSummaryService,
+  ReportSummaryService,
+  ReportIdService,
+  ReportFileService,
+  ReportValidationService,
   ],
   exports: [
     ReportsService,
     ReportExportService,
     ReportSummaryService,
+  ReportIdService,
+  ReportFileService,
+  ReportValidationService,
   ],
 })
 export class ReportsModule {}

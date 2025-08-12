@@ -5,9 +5,13 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { CreatePenyambunganDto } from './dto/create-penyambungan.dto';
 import { ImageService } from './services/image.service';
 import { StorageService } from './services/storage.service';
+import { ReportIdService } from './services/report-id.service';
+import { ReportFileService } from './services/report-file.service';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { FileValidator } from '../utils/file-validator.util';
+import { ReportValidationService } from './services/report-validation.service';
+import { paginate } from '../common/pagination.util';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 
 @Injectable()
@@ -19,47 +23,10 @@ export class ReportsService {
     private readonly storageService: StorageService,
     private readonly imageService: ImageService,
     private readonly activityLogsService: ActivityLogsService,
+    private readonly reportIdService: ReportIdService,
+    private readonly reportFileService: ReportFileService,
+  private readonly reportValidationService: ReportValidationService,
   ) {}
-
-  private async generateLaporanId(type: 'YT' | 'PS', prismaClient: Prisma.TransactionClient | PrismaService): Promise<string> {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const prefix = `${type}${year}${month}`;
-    const startRange = prefix + '0000';
-    const endRange = prefix + '9999';
-
-    const tableName = type === 'YT' ? "LaporanYantek" : "LaporanPenyambungan";
-
-    const query = Prisma.sql`
-      SELECT id 
-      FROM ${Prisma.raw(`"${tableName}"`)}
-      WHERE id >= ${startRange}
-        AND id <= ${endRange}
-      ORDER BY id DESC 
-      LIMIT 1`;
-
-    // Execute the raw query using the provided client
-    const lastReport = await prismaClient.$queryRaw<Array<{ id: string }>>(query);
-
-    let sequence = 1;
-    if (lastReport.length > 0) {
-      const lastSequence = parseInt(lastReport[0].id.slice(-4));
-      sequence = lastSequence + 1;
-    }
-
-    if (sequence > 9999) {
-      throw new Error(`Sequence limit exceeded for ${prefix}`);
-    }
-
-    return `${prefix}${String(sequence).padStart(4, '0')}`;
-  }
-
-  private async getNextId(type: 'YT' | 'PS', prismaClient: Prisma.TransactionClient | PrismaService): Promise<string> {
-    const newId = await this.generateLaporanId(type, prismaClient);
-    return newId;
-  }
-
 
   validateAndProcessYantekFiles(files: {
     foto_rumah?: Express.Multer.File[];
@@ -67,16 +34,7 @@ export class ReportsService {
     foto_petugas?: Express.Multer.File[];
     foto_ba_gangguan?: Express.Multer.File[];
   }) {
-    FileValidator.validateRequiredFiles(files, ['foto_rumah', 'foto_meter_rusak', 'foto_petugas', 'foto_ba_gangguan']);
-
-    const allFiles = [
-      { name: 'foto rumah', file: files.foto_rumah[0] },
-      { name: 'foto meter rusak', file: files.foto_meter_rusak[0] },
-      { name: 'foto petugas', file: files.foto_petugas[0] },
-      { name: 'foto BA gangguan', file: files.foto_ba_gangguan[0] },
-    ];
-
-    FileValidator.validateImageFiles(allFiles);
+  this.reportValidationService.validateYantekFiles(files);
   }
 
   validateAndProcessPenyambunganFiles(files: {
@@ -85,21 +43,7 @@ export class ReportsService {
     foto_petugas?: Express.Multer.File[];
     foto_ba_pemasangan?: Express.Multer.File[];
   }) {
-    FileValidator.validateRequiredFiles(files, [
-      'foto_pemasangan_meter',
-      'foto_rumah_pelanggan',
-      'foto_petugas',
-      'foto_ba_pemasangan'
-    ]);
-
-    const allFiles = [
-      { name: 'foto pemasangan meter', file: files.foto_pemasangan_meter[0] },
-      { name: 'foto rumah pelanggan', file: files.foto_rumah_pelanggan[0] },
-      { name: 'foto petugas', file: files.foto_petugas[0] },
-      { name: 'foto BA pemasangan', file: files.foto_ba_pemasangan[0] },
-    ];
-
-    FileValidator.validateImageFiles(allFiles);
+  this.reportValidationService.validatePenyambunganFiles(files);
   }
 
   async createYantek(
@@ -114,17 +58,17 @@ export class ReportsService {
   ) {
     // Process and store files first (outside transaction)
     const [fotoRumahPath, fotoMeterPath, fotoPetugasPath, fotoBaPath] = await Promise.all([
-      this.processAndSaveImage(files.foto_rumah[0], 'house'),
-      this.processAndSaveImage(files.foto_meter_rusak[0], 'meter'),
-      this.processAndSaveImage(files.foto_petugas[0], 'petugas'),
-      this.processAndSaveImage(files.foto_ba_gangguan[0], 'document'),
+  this.reportFileService.processAndSaveImage(files.foto_rumah[0], 'house'),
+  this.reportFileService.processAndSaveImage(files.foto_meter_rusak[0], 'meter'),
+  this.reportFileService.processAndSaveImage(files.foto_petugas[0], 'petugas'),
+  this.reportFileService.processAndSaveImage(files.foto_ba_gangguan[0], 'document'),
     ]);
 
-    let report; // Declare report variable outside transaction scope
+    let report;
     try {
       // Use transaction for ID generation and report creation
       report = await this.prisma.$transaction(async (tx) => {
-        const id = await this.getNextId('YT', tx); // Pass transaction client
+  const id = await this.reportIdService.getNextId('YT', tx); // Pass transaction client
 
         const createdReport = await tx.laporanYantek.create({ // Use tx client
           data: {
@@ -175,23 +119,7 @@ export class ReportsService {
   }
 
 
-  private async processAndSaveImage(
-    file: Express.Multer.File,
-    type: 'house' | 'meter' | 'document' | 'petugas' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba'
-  ): Promise<string> {
-    const MAX_SIZE_WITHOUT_COMPRESSION = 50 * 1024 * 1024; // 50MB in bytes
-
-    let imageBuffer: Buffer;
-    
-    if (file.size > MAX_SIZE_WITHOUT_COMPRESSION) {
-      // Kompresi hanya untuk file yang lebih dari 50MB
-      imageBuffer = await this.imageService.compressImage(file.buffer);
-    } else {
-      // Gunakan file asli tanpa kompresi
-      imageBuffer = file.buffer;
-    }
-    return this.storageService.saveFile(imageBuffer, type, file.originalname);
-  }
+  // moved: file processing handled by ReportFileService
 
   async createPenyambungan(
     createPenyambunganDto: CreatePenyambunganDto,
@@ -232,10 +160,10 @@ export class ReportsService {
 
     try {
       [fotoPemasanganPath, fotoRumahPath, fotoPetugasPath, fotoBaPath] = await Promise.all([
-        this.processAndSaveImage(files.foto_pemasangan_meter[0], 'penyambungan_meter'),
-        this.processAndSaveImage(files.foto_rumah_pelanggan[0], 'penyambungan_rumah'),
-        this.processAndSaveImage(files.foto_petugas[0], 'petugas'),
-        this.processAndSaveImage(files.foto_ba_pemasangan[0], 'penyambungan_ba'),
+  this.reportFileService.processAndSaveImage(files.foto_pemasangan_meter[0], 'penyambungan_meter'),
+  this.reportFileService.processAndSaveImage(files.foto_rumah_pelanggan[0], 'penyambungan_rumah'),
+  this.reportFileService.processAndSaveImage(files.foto_petugas[0], 'petugas'),
+  this.reportFileService.processAndSaveImage(files.foto_ba_pemasangan[0], 'penyambungan_ba'),
       ]);
 
       // 4. Perform database operations in a transaction
@@ -243,7 +171,7 @@ export class ReportsService {
       try {
         result = await this.prisma.$transaction(async (tx) => { // Use tx for transaction client
           // Generate ID within the transaction
-          const id = await this.getNextId('PS', tx); // Pass transaction client
+          const id = await this.reportIdService.getNextId('PS', tx); // Pass transaction client
 
           // Create LaporanPenyambungan using transaction client
           const laporanPenyambungan = await tx.laporanPenyambungan.create({
@@ -351,24 +279,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       const allowedIds = userLogs.map(log => log.createdYantekReportId).filter(Boolean);
       filteredData = allData.filter(report => allowedIds.includes(report.id));
     }
-    // Apply pagination after filtering
-    const paginatedData = filteredData.slice(skip, skip + limit);
-    const filteredTotal = filteredData.length;
-    const totalPages = Math.ceil(filteredTotal / limit);
-
-    // Tidak perlu mapping activityLogs
-    const data = paginatedData;
-
-    return {
-      data,
-      meta: {
-        totalItems: filteredTotal,
-        itemCount: data.length,
-        itemsPerPage: limit,
-        totalPages,
-        currentPage: page,
-      },
-    };
+  // Apply pagination after filtering
+  const { data, meta } = paginate(filteredData, page, limit);
+  return { data, meta };
   }
 
   async findOne(id: string) {
@@ -565,24 +478,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     }
     // ADMIN sees everything (no filtering)
 
-    // Apply pagination after filtering
-    const paginatedData = filteredData.slice(skip, skip + limit);
-    const filteredTotal = filteredData.length;
-    const totalPages = Math.ceil(filteredTotal / limit);
-
-    // Map the data to remove the activityLogs which was only used for filtering
-    const data = paginatedData;
-
-    return {
-      data,
-      meta: {
-        totalItems: filteredTotal,
-        itemCount: data.length,
-        itemsPerPage: limit,
-        totalPages,
-        currentPage: page,
-      },
-    };
+  // Apply pagination after filtering
+  const { data, meta } = paginate(filteredData, page, limit);
+  return { data, meta };
   }
 
   async findYantekHistoryForPetugas(paginationQuery: PaginationQueryDto, userFullname: string) { // Changed userId to userFullname
@@ -679,24 +577,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     }
     // ADMIN sees everything (no filtering)
 
-    // Apply pagination after filtering
-    const paginatedData = filteredData.slice(skip, skip + limit);
-    const filteredTotal = filteredData.length;
-    const totalPages = Math.ceil(filteredTotal / limit);
-
-    // Map the data to remove the activityLogs which was only used for filtering
-    const data = paginatedData;
-
-    return {
-      data,
-      meta: {
-        totalItems: filteredTotal,
-        itemCount: data.length,
-        itemsPerPage: limit,
-        totalPages,
-        currentPage: page,
-      },
-    };
+  // Apply pagination after filtering
+  const { data, meta } = paginate(filteredData, page, limit);
+  return { data, meta };
   }
 
   async findPenyambunganHistoryForPetugas(paginationQuery: PaginationQueryDto, userId: string) {
