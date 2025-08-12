@@ -328,7 +328,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       },
       where: {
         status_laporan: {
-          in: [StatusLaporan.BARU],
+          in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
         },
       },
       // Tidak ada include activityLogs karena tidak ada relasi
@@ -336,7 +336,7 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     this.prisma.laporanYantek.count({
       where: {
         status_laporan: {
-          in: [StatusLaporan.BARU],
+          in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
         },
       },
     }),
