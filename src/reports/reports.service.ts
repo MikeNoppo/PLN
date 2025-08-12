@@ -330,6 +330,41 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       }
     });
 
+    // Also delete files belonging to related LaporanPenyambungan (if any)
+    const penyambunganRecords = await this.prisma.laporanPenyambungan.findMany({
+      where: { laporan_yante_id: id },
+      select: {
+        id: true,
+        foto_pemasangan_meter: true,
+        foto_rumah_pelanggan: true,
+        foto_petugas: true,
+        foto_ba_pemasangan: true,
+      },
+    });
+
+    if (penyambunganRecords.length > 0) {
+      const tasks: { path: string | null; label: string; penyambunganId: string }[] = [];
+      for (const rec of penyambunganRecords) {
+        tasks.push(
+          { path: rec.foto_pemasangan_meter, label: 'penyambungan.foto_pemasangan_meter', penyambunganId: rec.id },
+          { path: rec.foto_rumah_pelanggan, label: 'penyambungan.foto_rumah_pelanggan', penyambunganId: rec.id },
+          { path: rec.foto_petugas, label: 'penyambungan.foto_petugas', penyambunganId: rec.id },
+          { path: rec.foto_ba_pemasangan, label: 'penyambungan.foto_ba_pemasangan', penyambunganId: rec.id },
+        );
+      }
+
+      const deletionResults = await Promise.all(
+        tasks.map(t => t.path ? this.storageService.deleteFile(t.path) : Promise.resolve({ success: true }))
+      );
+
+      deletionResults.forEach((res, i) => {
+        if ((res as any).error) {
+          const t = tasks[i];
+          this.logger.warn(`Issue deleting ${t.label} for penyambungan ${t.penyambunganId} (yantek ${id}): ${(res as any).error}`);
+        }
+      });
+    }
+
     try {
       // Use transaction to ensure related data deletion happens together
       // Note: ActivityLog deletion related to this report is handled by `onDelete: Cascade` in schema
