@@ -11,7 +11,7 @@ import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { FileValidator } from '../utils/file-validator.util';
 import { ReportValidationService } from './services/report-validation.service';
-import { paginate } from '../common/pagination.util';
+import { paginate, buildMeta } from '../common/pagination.util';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 
 @Injectable()
@@ -523,17 +523,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       }),
     ]);
 
-    const totalPages = Math.ceil(totalItems / limit);
-
     return {
       data,
-      meta: {
-        totalItems,
-        itemCount: data.length,
-        itemsPerPage: limit,
-        totalPages,
-        currentPage: page,
-      },
+      meta: buildMeta(totalItems, page, limit, data.length),
     };
   }
 
@@ -650,17 +642,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       }),
     ]);
 
-    const totalPages = Math.ceil(totalItems / limit);
-
     return {
       data,
-      meta: {
-        totalItems,
-        itemCount: data.length,
-        itemsPerPage: limit,
-        totalPages,
-        currentPage: page,
-      },
+      meta: buildMeta(totalItems, page, limit, data.length),
     };
   }
 }

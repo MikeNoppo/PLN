@@ -19,3 +19,14 @@ export function paginate<T>(allData: T[], page: number = 1, limit: number = 10) 
   };
   return { data: paginated, meta };
 }
+
+// Helper for DB-paginated responses to standardize meta structure
+export function buildMeta(totalItems: number, page: number = 1, limit: number = 10, itemCount?: number): PaginationMeta {
+  return {
+    totalItems,
+    itemCount: itemCount ?? Math.min(limit, Math.max(0, totalItems - (page - 1) * limit)),
+    itemsPerPage: limit,
+    totalPages: Math.ceil(totalItems / limit),
+    currentPage: page,
+  };
+}
