@@ -92,7 +92,8 @@ export class ReportExportService {
       const worksheet = workbook.addWorksheet('Laporan PLN');
 
       // --- Template (Optional - Basic Title) ---
-      worksheet.mergeCells('A1:P1'); // Adjusted merge range for new columns
+  // Expand merged title range to cover all columns (updated after adding Tikor column)
+  worksheet.mergeCells('A1:T1');
       worksheet.getCell('A1').value = 'Laporan Yantek dan Penyambungan';
       worksheet.getCell('A1').font = { size: 16, bold: true };
       worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -103,7 +104,8 @@ export class ReportExportService {
         'No', 'ID Laporan', 'IDPEL', 'Nomor Meter', 'Tipe Meter', 'Tgl Lap. Yantek', 'Tgl Lap. Penyambungan',
         'Petugas Yantek', 'Petugas Penyambungan', 'Foto Rumah', 'Foto Meter Rusak', 'Foto Petugas Yantek',
         'Foto BA Gangguan', 'Foto Pasang Meter', 'Foto Rumah Pelanggan', 'Foto Petugas Penyambungan', 'Foto BA Pasang',
-        'Status Laporan', 'Keterangan' // Added Keterangan
+        'Status Laporan', 'Keterangan', // Added Keterangan
+        'Tikor' // Added Tikor (titik_koordinat)
       ]);
 
       headerRow.eachCell((cell) => {
@@ -187,6 +189,7 @@ export class ReportExportService {
           '', // Foto BA Pasang
           report.status_laporan,
           report.keterangan || '-', // Added Keterangan
+          report.titik_koordinat || '-', // Added Tikor
         ]);
 
         row.eachCell((cell) => {
@@ -218,7 +221,8 @@ export class ReportExportService {
           const img = getImageBuffer(imgPath);
           if (img) {
             try {
-              const imageId = workbook.addImage({ buffer: img.buffer, extension: img.extension });
+              // ExcelJS typings expect a Node Buffer; cast to any to bridge type mismatch across versions
+              const imageId = workbook.addImage({ buffer: img.buffer as any, extension: img.extension });
               const colIdx = 9 + i;
               const rowIdx = excelRow - 1;
               worksheet.addImage(imageId, {
@@ -260,10 +264,13 @@ export class ReportExportService {
         { key: 'fotoBaPasang', width: 20 },
         { key: 'status', width: 15 },
         { key: 'keterangan', width: 30 }, // Added Keterangan
+        { key: 'tikor', width: 25 }, // Added Tikor
       ];
 
-      // 4. Generate Buffer
-      return await workbook.xlsx.writeBuffer() as Buffer;
+  // 4. Generate Buffer (normalize to Node Buffer across environments)
+  const data: unknown = await workbook.xlsx.writeBuffer();
+  const nodeBuffer = Buffer.isBuffer(data) ? (data as Buffer) : Buffer.from(data as ArrayBuffer);
+  return nodeBuffer;
 
     } catch (error) {
       console.error('Error generating Excel file:', error);
