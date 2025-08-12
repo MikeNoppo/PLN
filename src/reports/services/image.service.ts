@@ -32,7 +32,7 @@ export class ImageService {
     try {
       const metadata = await this.getImageInfo(buffer);
       const validFormats = ['jpeg', 'jpg', 'png'];
-      
+
       return validFormats.includes(metadata.format);
     } catch {
       return false;

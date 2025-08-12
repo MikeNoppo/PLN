@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StatusLaporan, TipeMeter } from '@prisma/client';
 import { PeriodType } from '../dto/performance-filter.dto';
@@ -23,7 +27,13 @@ export class ReportSummaryService {
     const endOfPreviousMonth = startOfCurrentMonth; // End of previous month is start of current month
 
     try {
-      const [countBaru, countDiproses, countSelesai, totalBulanIni, totalBulanLalu] = await this.prisma.$transaction([
+      const [
+        countBaru,
+        countDiproses,
+        countSelesai,
+        totalBulanIni,
+        totalBulanLalu,
+      ] = await this.prisma.$transaction([
         this.prisma.laporanYantek.count({
           where: { status_laporan: StatusLaporan.BARU },
         }),
@@ -63,58 +73,61 @@ export class ReportSummaryService {
           monthlyReportTotals: {
             currentMonth: totalBulanIni,
             previousMonth: totalBulanLalu,
-          }
-        }
+          },
+        },
       };
     } catch (error) {
       this.logger.error('Error fetching report summary:', error);
-      throw new InternalServerErrorException('Gagal mengambil ringkasan laporan.');
+      throw new InternalServerErrorException(
+        'Gagal mengambil ringkasan laporan.',
+      );
     }
   }
 
   async getDashboardStats() {
     try {
-      const [countRusak, countOptimal, countPraBayar, countPascaBayar] = await this.prisma.$transaction([
-        // Total laporan Yantek dengan status BARU atau DIPROSES (Belum Selesai = rusak)
-        this.prisma.laporanYantek.count({
-          where: {
-            status_laporan: {
-              in: [StatusLaporan.BARU, StatusLaporan.DIPROSES]
+      const [countRusak, countOptimal, countPraBayar, countPascaBayar] =
+        await this.prisma.$transaction([
+          // Total laporan Yantek dengan status BARU atau DIPROSES (Belum Selesai = rusak)
+          this.prisma.laporanYantek.count({
+            where: {
+              status_laporan: {
+                in: [StatusLaporan.BARU, StatusLaporan.DIPROSES],
+              },
             },
-          }
-        }),
-        // Total laporan Yantek dengan status SELESAI (Selesai = optimal)
-        this.prisma.laporanYantek.count({
-          where: {
-            status_laporan: StatusLaporan.SELESAI
-          }
-        }),
-        // Total laporan Yantek dengan jenis meteran PRA-BAYAR
-        this.prisma.laporanYantek.count({
-          where: {
-            tipe_meter: TipeMeter.PRA_BAYAR
-          }
-        }),
-        // Total laporan Yantek dengan jenis meteran PASCA-BAYAR
-        this.prisma.laporanYantek.count({
-          where: {
-            tipe_meter: TipeMeter.PASCA_BAYAR
-          }
-        })
-      ]);
+          }),
+          // Total laporan Yantek dengan status SELESAI (Selesai = optimal)
+          this.prisma.laporanYantek.count({
+            where: {
+              status_laporan: StatusLaporan.SELESAI,
+            },
+          }),
+          // Total laporan Yantek dengan jenis meteran PRA-BAYAR
+          this.prisma.laporanYantek.count({
+            where: {
+              tipe_meter: TipeMeter.PRA_BAYAR,
+            },
+          }),
+          // Total laporan Yantek dengan jenis meteran PASCA-BAYAR
+          this.prisma.laporanYantek.count({
+            where: {
+              tipe_meter: TipeMeter.PASCA_BAYAR,
+            },
+          }),
+        ]);
 
       return {
         message: 'Data Statistik berhasil diambil',
-        data:{
+        data: {
           meterStatus: {
             rusak: countRusak,
-            optimal: countOptimal
+            optimal: countOptimal,
           },
           meterTypes: {
             praBayar: countPraBayar,
-            pascaBayar: countPascaBayar
-          }
-        }
+            pascaBayar: countPascaBayar,
+          },
+        },
       };
     } catch (error) {
       this.logger.error('Error fetching dashboard stats:', error);
@@ -127,31 +140,31 @@ export class ReportSummaryService {
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth(); // 0-indexed
-      
+
       // Array untuk menyimpan hasil
       let labels: string[] = [];
       let data: number[] = [];
 
-      switch(period) {
+      switch (period) {
         case PeriodType.WEEKLY:
           // Data 4 minggu terakhir pada bulan berjalan
           labels = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4'];
-          
+
           // Hitung tanggal awal dan akhir setiap minggu
           const weeks = [];
           for (let i = 0; i < 4; i++) {
             const startDay = i * 7 + 1;
             const startDate = new Date(currentYear, currentMonth, startDay);
             const endDate = new Date(currentYear, currentMonth, startDay + 6);
-            
+
             // Sesuaikan untuk minggu yang melebihi akhir bulan
             if (endDate.getMonth() > currentMonth) {
               endDate.setDate(0); // Set ke hari terakhir bulan sebelumnya
             }
-            
+
             weeks.push({ startDate, endDate });
           }
-          
+
           // Ambil data per minggu
           data = await Promise.all(
             weeks.map(async ({ startDate, endDate }) => {
@@ -163,7 +176,7 @@ export class ReportSummaryService {
                   },
                 },
               });
-            })
+            }),
           );
           break;
 
@@ -173,17 +186,18 @@ export class ReportSummaryService {
           const monthsData = [];
           for (let i = 5; i >= 0; i--) {
             const targetMonth = (currentMonth - i + 12) % 12; // Pastikan nilai positif
-            const targetYear = currentYear - Math.floor((i - currentMonth) / 12);
-            
+            const targetYear =
+              currentYear - Math.floor((i - currentMonth) / 12);
+
             const monthDate = new Date(targetYear, targetMonth, 1);
             labels.push(this.getMonthName(targetMonth));
-            
+
             const startOfMonth = new Date(targetYear, targetMonth, 1);
             const endOfMonth = new Date(targetYear, targetMonth + 1, 0);
-            
+
             monthsData.push({ startDate: startOfMonth, endDate: endOfMonth });
           }
-          
+
           // Ambil data per bulan
           data = await Promise.all(
             monthsData.map(async ({ startDate, endDate }) => {
@@ -195,7 +209,7 @@ export class ReportSummaryService {
                   },
                 },
               });
-            })
+            }),
           );
           break;
 
@@ -206,13 +220,13 @@ export class ReportSummaryService {
           for (let i = 4; i >= 0; i--) {
             const targetYear = currentYear - i;
             labels.push(targetYear.toString());
-            
+
             const startOfYear = new Date(targetYear, 0, 1);
             const endOfYear = new Date(targetYear, 11, 31);
-            
+
             yearsData.push({ startDate: startOfYear, endDate: endOfYear });
           }
-          
+
           // Ambil data per tahun
           data = await Promise.all(
             yearsData.map(async ({ startDate, endDate }) => {
@@ -224,7 +238,7 @@ export class ReportSummaryService {
                   },
                 },
               });
-            })
+            }),
           );
           break;
       }
@@ -234,8 +248,8 @@ export class ReportSummaryService {
         message: 'Data performa perbaikan meter berhasil diambil',
         data: {
           labels,
-          data
-        }
+          data,
+        },
       };
     } catch (error) {
       this.logger.error('Error fetching performance stats:', error);
@@ -246,8 +260,18 @@ export class ReportSummaryService {
   // Helper method untuk nama bulan dalam bahasa Indonesia
   private getMonthName(monthIndex: number): string {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
-      'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Ags',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
     ];
     return months[monthIndex];
   }

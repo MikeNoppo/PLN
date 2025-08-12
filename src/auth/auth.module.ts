@@ -23,7 +23,7 @@ import { PrismaModule } from '../prisma/prisma.module';
         const expiresIn = configService.get<string>('AT_EXPIRES_IN');
 
         return {
-          secret: secret, 
+          secret: secret,
           signOptions: { expiresIn: expiresIn },
         };
       },

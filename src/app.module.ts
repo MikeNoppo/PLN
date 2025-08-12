@@ -12,10 +12,12 @@ import { AppUpdateModule } from './app-update/app-update.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ 
-      ttl: 60000, // 60 seconds
-      limit: 10,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 60 seconds
+        limit: 10,
+      },
+    ]),
     AuthModule,
     PrismaModule,
     UsersModule,

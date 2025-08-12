@@ -1,4 +1,12 @@
-import { IsOptional, IsNumber, IsEnum, IsString, IsUUID, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  IsString,
+  IsUUID,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { TipeMeter } from '@prisma/client';
 
@@ -12,7 +20,7 @@ export class ExportFilterDto {
   @IsNumber()
   @Min(1)
   @Max(12)
-  @Type(() => Number) 
+  @Type(() => Number)
   month?: number;
 
   @IsOptional()
@@ -20,6 +28,6 @@ export class ExportFilterDto {
   tipe_meter?: TipeMeter;
 
   @IsOptional()
-  @IsUUID() 
-  petugas_yantek_id?: string; 
+  @IsUUID()
+  petugas_yantek_id?: string;
 }

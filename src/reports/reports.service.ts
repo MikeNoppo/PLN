@@ -1,4 +1,11 @@
-import { Injectable, BadRequestException, NotFoundException, Logger, InternalServerErrorException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+  InternalServerErrorException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, ActivityType, StatusLaporan, UserRole } from '@prisma/client';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -25,7 +32,7 @@ export class ReportsService {
     private readonly activityLogsService: ActivityLogsService,
     private readonly reportIdService: ReportIdService,
     private readonly reportFileService: ReportFileService,
-  private readonly reportValidationService: ReportValidationService,
+    private readonly reportValidationService: ReportValidationService,
   ) {}
 
   validateAndProcessYantekFiles(files: {
@@ -34,7 +41,7 @@ export class ReportsService {
     foto_petugas?: Express.Multer.File[];
     foto_ba_gangguan?: Express.Multer.File[];
   }) {
-  this.reportValidationService.validateYantekFiles(files);
+    this.reportValidationService.validateYantekFiles(files);
   }
 
   validateAndProcessPenyambunganFiles(files: {
@@ -43,34 +50,48 @@ export class ReportsService {
     foto_petugas?: Express.Multer.File[];
     foto_ba_pemasangan?: Express.Multer.File[];
   }) {
-  this.reportValidationService.validatePenyambunganFiles(files);
+    this.reportValidationService.validatePenyambunganFiles(files);
   }
 
   async createYantek(
     createReportDto: CreateReportDto,
     files: {
-      foto_rumah?: Express.Multer.File[],
-      foto_meter_rusak?: Express.Multer.File[],
-      foto_petugas?: Express.Multer.File[],
-      foto_ba_gangguan?: Express.Multer.File[]
+      foto_rumah?: Express.Multer.File[];
+      foto_meter_rusak?: Express.Multer.File[];
+      foto_petugas?: Express.Multer.File[];
+      foto_ba_gangguan?: Express.Multer.File[];
     },
     userId?: string,
   ) {
     // Process and store files first (outside transaction)
-    const [fotoRumahPath, fotoMeterPath, fotoPetugasPath, fotoBaPath] = await Promise.all([
-  this.reportFileService.processAndSaveImage(files.foto_rumah[0], 'house'),
-  this.reportFileService.processAndSaveImage(files.foto_meter_rusak[0], 'meter'),
-  this.reportFileService.processAndSaveImage(files.foto_petugas[0], 'petugas'),
-  this.reportFileService.processAndSaveImage(files.foto_ba_gangguan[0], 'document'),
-    ]);
+    const [fotoRumahPath, fotoMeterPath, fotoPetugasPath, fotoBaPath] =
+      await Promise.all([
+        this.reportFileService.processAndSaveImage(
+          files.foto_rumah[0],
+          'house',
+        ),
+        this.reportFileService.processAndSaveImage(
+          files.foto_meter_rusak[0],
+          'meter',
+        ),
+        this.reportFileService.processAndSaveImage(
+          files.foto_petugas[0],
+          'petugas',
+        ),
+        this.reportFileService.processAndSaveImage(
+          files.foto_ba_gangguan[0],
+          'document',
+        ),
+      ]);
 
     let report;
     try {
       // Use transaction for ID generation and report creation
       report = await this.prisma.$transaction(async (tx) => {
-  const id = await this.reportIdService.getNextId('YT', tx); // Pass transaction client
+        const id = await this.reportIdService.getNextId('YT', tx); // Pass transaction client
 
-        const createdReport = await tx.laporanYantek.create({ // Use tx client
+        const createdReport = await tx.laporanYantek.create({
+          // Use tx client
           data: {
             id,
             ...createReportDto,
@@ -85,16 +106,22 @@ export class ReportsService {
       });
 
       // *** Create Activity Log (outside transaction, using the created report ID) ***
-      if (userId && report) { // Check if report was successfully created
-        await this.activityLogsService.createLog({
-          activityType: ActivityType.REPORT_CREATED,
-          createdYantekReportId: report.id, // Use the ID from the created report
-          createdByUserId: userId,
-          message: `Laporan Yantek baru [${report.id}] dibuat.`,
-        }).catch(logError => {
-          // Log error but don't fail the whole operation if logging fails
-          this.logger.error(`Failed to create activity log for Yantek creation ${report?.id}:`, logError);
-        });
+      if (userId && report) {
+        // Check if report was successfully created
+        await this.activityLogsService
+          .createLog({
+            activityType: ActivityType.REPORT_CREATED,
+            createdYantekReportId: report.id, // Use the ID from the created report
+            createdByUserId: userId,
+            message: `Laporan Yantek baru [${report.id}] dibuat.`,
+          })
+          .catch((logError) => {
+            // Log error but don't fail the whole operation if logging fails
+            this.logger.error(
+              `Failed to create activity log for Yantek creation ${report?.id}:`,
+              logError,
+            );
+          });
       }
 
       return {
@@ -102,21 +129,38 @@ export class ReportsService {
         message: 'Laporan Yantek berhasil dibuat',
         data: report, // Return the report created within the transaction
       };
-
     } catch (error) {
       // Clean up stored files if database transaction fails or subsequent logging fails
-      this.logger.error('Error during Yantek creation transaction or logging:', error);
+      this.logger.error(
+        'Error during Yantek creation transaction or logging:',
+        error,
+      );
       await Promise.all([
-        this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)),
-        this.storageService.deleteFile(fotoMeterPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoMeterPath}: ${e}`)),
-        this.storageService.deleteFile(fotoPetugasPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`)),
-        this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)),
+        this.storageService
+          .deleteFile(fotoRumahPath)
+          .catch((e) =>
+            this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`),
+          ),
+        this.storageService
+          .deleteFile(fotoMeterPath)
+          .catch((e) =>
+            this.logger.warn(`Cleanup failed for ${fotoMeterPath}: ${e}`),
+          ),
+        this.storageService
+          .deleteFile(fotoPetugasPath)
+          .catch((e) =>
+            this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`),
+          ),
+        this.storageService
+          .deleteFile(fotoBaPath)
+          .catch((e) =>
+            this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`),
+          ),
       ]);
       // Re-throw the original error after cleanup attempt
       throw error;
     }
   }
-
 
   // moved: file processing handled by ReportFileService
 
@@ -135,21 +179,27 @@ export class ReportsService {
     });
 
     if (!laporanYantek) {
-      throw new NotFoundException(`Laporan Yantek dengan ID ${createPenyambunganDto.laporan_yante_id} tidak ditemukan.`);
+      throw new NotFoundException(
+        `Laporan Yantek dengan ID ${createPenyambunganDto.laporan_yante_id} tidak ditemukan.`,
+      );
     }
 
     if (laporanYantek.status_laporan === StatusLaporan.SELESAI) {
-      throw new ConflictException(`Laporan Yantek dengan ID ${createPenyambunganDto.laporan_yante_id} sudah selesai.`);
-    }
-    
-    // Check if penyambungan report already exists for this yantek report
-    const existingPenyambungan = await this.prisma.laporanPenyambungan.findUnique({
-        where: { laporan_yante_id: createPenyambunganDto.laporan_yante_id },
-    });
-    if (existingPenyambungan) {
-        throw new ConflictException(`Laporan Penyambungan untuk Laporan Yantek ID ${createPenyambunganDto.laporan_yante_id} sudah ada.`);
+      throw new ConflictException(
+        `Laporan Yantek dengan ID ${createPenyambunganDto.laporan_yante_id} sudah selesai.`,
+      );
     }
 
+    // Check if penyambungan report already exists for this yantek report
+    const existingPenyambungan =
+      await this.prisma.laporanPenyambungan.findUnique({
+        where: { laporan_yante_id: createPenyambunganDto.laporan_yante_id },
+      });
+    if (existingPenyambungan) {
+      throw new ConflictException(
+        `Laporan Penyambungan untuk Laporan Yantek ID ${createPenyambunganDto.laporan_yante_id} sudah ada.`,
+      );
+    }
 
     // 3. Process and store files
     let fotoPemasanganPath: string | undefined;
@@ -158,17 +208,31 @@ export class ReportsService {
     let fotoBaPath: string | undefined;
 
     try {
-      [fotoPemasanganPath, fotoRumahPath, fotoPetugasPath, fotoBaPath] = await Promise.all([
-  this.reportFileService.processAndSaveImage(files.foto_pemasangan_meter[0], 'penyambungan_meter'),
-  this.reportFileService.processAndSaveImage(files.foto_rumah_pelanggan[0], 'penyambungan_rumah'),
-  this.reportFileService.processAndSaveImage(files.foto_petugas[0], 'petugas'),
-  this.reportFileService.processAndSaveImage(files.foto_ba_pemasangan[0], 'penyambungan_ba'),
-      ]);
+      [fotoPemasanganPath, fotoRumahPath, fotoPetugasPath, fotoBaPath] =
+        await Promise.all([
+          this.reportFileService.processAndSaveImage(
+            files.foto_pemasangan_meter[0],
+            'penyambungan_meter',
+          ),
+          this.reportFileService.processAndSaveImage(
+            files.foto_rumah_pelanggan[0],
+            'penyambungan_rumah',
+          ),
+          this.reportFileService.processAndSaveImage(
+            files.foto_petugas[0],
+            'petugas',
+          ),
+          this.reportFileService.processAndSaveImage(
+            files.foto_ba_pemasangan[0],
+            'penyambungan_ba',
+          ),
+        ]);
 
       // 4. Perform database operations in a transaction
       let result; // Declare result outside transaction scope
       try {
-        result = await this.prisma.$transaction(async (tx) => { // Use tx for transaction client
+        result = await this.prisma.$transaction(async (tx) => {
+          // Use tx for transaction client
           // Generate ID within the transaction
           const id = await this.reportIdService.getNextId('PS', tx); // Pass transaction client
 
@@ -197,17 +261,23 @@ export class ReportsService {
         });
 
         // *** Create Activity Log ***
-        if (userId && result) { // Check if transaction was successful and result exists
-          await this.activityLogsService.createLog({
-            activityType: ActivityType.REPORT_COMPLETED,
-            createdYantekReportId: createPenyambunganDto.laporan_yante_id,
-            createdPenyambunganReportId: result.id, // Use ID from transaction result
-            createdByUserId: userId,
-            message: `Laporan [${createPenyambunganDto.laporan_yante_id}] diselesaikan via penyambungan [${result.id}].`,
-          }).catch(logError => {
-            // Log error but don't fail the whole operation if logging fails
-            this.logger.error(`Failed to create activity log for Penyambungan completion ${result?.id}:`, logError);
-          });
+        if (userId && result) {
+          // Check if transaction was successful and result exists
+          await this.activityLogsService
+            .createLog({
+              activityType: ActivityType.REPORT_COMPLETED,
+              createdYantekReportId: createPenyambunganDto.laporan_yante_id,
+              createdPenyambunganReportId: result.id, // Use ID from transaction result
+              createdByUserId: userId,
+              message: `Laporan [${createPenyambunganDto.laporan_yante_id}] diselesaikan via penyambungan [${result.id}].`,
+            })
+            .catch((logError) => {
+              // Log error but don't fail the whole operation if logging fails
+              this.logger.error(
+                `Failed to create activity log for Penyambungan completion ${result?.id}:`,
+                logError,
+              );
+            });
         }
 
         return {
@@ -215,40 +285,105 @@ export class ReportsService {
           message: 'Laporan Penyambungan berhasil dibuat',
           data: result,
         };
-
       } catch (error) {
         // Clean up stored files if transaction or logging fails
-        this.logger.error('Error during Penyambungan creation transaction or logging:', error);
+        this.logger.error(
+          'Error during Penyambungan creation transaction or logging:',
+          error,
+        );
         await Promise.all([
-          fotoPemasanganPath ? this.storageService.deleteFile(fotoPemasanganPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPemasanganPath}: ${e}`)) : Promise.resolve(),
-          fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)) : Promise.resolve(),
-          fotoPetugasPath ? this.storageService.deleteFile(fotoPetugasPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`)) : Promise.resolve(),
-          fotoBaPath ? this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)) : Promise.resolve(),
+          fotoPemasanganPath
+            ? this.storageService
+                .deleteFile(fotoPemasanganPath)
+                .catch((e) =>
+                  this.logger.warn(
+                    `Cleanup failed for ${fotoPemasanganPath}: ${e}`,
+                  ),
+                )
+            : Promise.resolve(),
+          fotoRumahPath
+            ? this.storageService
+                .deleteFile(fotoRumahPath)
+                .catch((e) =>
+                  this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`),
+                )
+            : Promise.resolve(),
+          fotoPetugasPath
+            ? this.storageService
+                .deleteFile(fotoPetugasPath)
+                .catch((e) =>
+                  this.logger.warn(
+                    `Cleanup failed for ${fotoPetugasPath}: ${e}`,
+                  ),
+                )
+            : Promise.resolve(),
+          fotoBaPath
+            ? this.storageService
+                .deleteFile(fotoBaPath)
+                .catch((e) =>
+                  this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`),
+                )
+            : Promise.resolve(),
         ]);
         // Re-throw the original error after cleanup attempt
         throw error;
       }
-    } catch (error) { // This outer catch handles errors from file processing before the transaction
-      this.logger.error('Error processing Penyambungan files before transaction:', error);
+    } catch (error) {
+      // This outer catch handles errors from file processing before the transaction
+      this.logger.error(
+        'Error processing Penyambungan files before transaction:',
+        error,
+      );
       // Attempt cleanup even if file processing failed partially
       await Promise.all([
-        fotoPemasanganPath ? this.storageService.deleteFile(fotoPemasanganPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPemasanganPath}: ${e}`)) : Promise.resolve(),
-        fotoRumahPath ? this.storageService.deleteFile(fotoRumahPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`)) : Promise.resolve(),
-        fotoPetugasPath ? this.storageService.deleteFile(fotoPetugasPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`)) : Promise.resolve(),
-        fotoBaPath ? this.storageService.deleteFile(fotoBaPath).catch(e => this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`)) : Promise.resolve(),
+        fotoPemasanganPath
+          ? this.storageService
+              .deleteFile(fotoPemasanganPath)
+              .catch((e) =>
+                this.logger.warn(
+                  `Cleanup failed for ${fotoPemasanganPath}: ${e}`,
+                ),
+              )
+          : Promise.resolve(),
+        fotoRumahPath
+          ? this.storageService
+              .deleteFile(fotoRumahPath)
+              .catch((e) =>
+                this.logger.warn(`Cleanup failed for ${fotoRumahPath}: ${e}`),
+              )
+          : Promise.resolve(),
+        fotoPetugasPath
+          ? this.storageService
+              .deleteFile(fotoPetugasPath)
+              .catch((e) =>
+                this.logger.warn(`Cleanup failed for ${fotoPetugasPath}: ${e}`),
+              )
+          : Promise.resolve(),
+        fotoBaPath
+          ? this.storageService
+              .deleteFile(fotoBaPath)
+              .catch((e) =>
+                this.logger.warn(`Cleanup failed for ${fotoBaPath}: ${e}`),
+              )
+          : Promise.resolve(),
       ]);
       throw error; // Re-throw the file processing error
     }
   }
 
-
-async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
+  async FindActiveReport(
+    paginationQuery: PaginationQueryDto,
+    userId?: string,
+    userRole?: UserRole,
+  ) {
     const { page = 1, limit = 10, status } = paginationQuery;
     const skip = (page - 1) * limit;
 
     // Base filter by status
     const baseWhere: Prisma.LaporanYantekWhereInput = {
-      status_laporan: status ? status : { in: [StatusLaporan.BARU, StatusLaporan.DIPROSES] },
+      status_laporan: status
+        ? status
+        : { in: [StatusLaporan.BARU, StatusLaporan.DIPROSES] },
     };
 
     // Role-based filter pushed into DB
@@ -261,7 +396,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         },
         select: { createdYantekReportId: true },
       });
-      const allowedIds = userLogs.map(l => l.createdYantekReportId).filter(Boolean) as string[];
+      const allowedIds = userLogs
+        .map((l) => l.createdYantekReportId)
+        .filter(Boolean) as string[];
       if (allowedIds.length === 0) {
         return { data: [], meta: buildMeta(0, page, limit, 0) };
       }
@@ -287,14 +424,16 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     });
 
     if (!report) {
-      throw new NotFoundException(`Laporan dengan ID ${id} tidak ditemukan`); 
+      throw new NotFoundException(`Laporan dengan ID ${id} tidak ditemukan`);
     }
 
     return report;
   }
 
   async remove(id: string, userId?: string) {
-    this.logger.log(`Attempting to remove report ${id}, initiated by userId: ${userId}`); // Log entry point
+    this.logger.log(
+      `Attempting to remove report ${id}, initiated by userId: ${userId}`,
+    ); // Log entry point
     const report = await this.findOne(id);
     // Also prepare to delete files belonging to related LaporanPenyambungan (if any)
     const penyambunganRecords = await this.prisma.laporanPenyambungan.findMany({
@@ -347,30 +486,63 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       // Log any file deletion issues
       fileDeletionResults.forEach((result, index) => {
         if ((result as any).error) {
-          const fileType = ['foto_rumah', 'foto_meter_rusak', 'foto_petugas', 'foto_ba_gangguan'][index];
-          this.logger.warn(`Issue deleting ${fileType} for report ${id}: ${(result as any).error}`);
+          const fileType = [
+            'foto_rumah',
+            'foto_meter_rusak',
+            'foto_petugas',
+            'foto_ba_gangguan',
+          ][index];
+          this.logger.warn(
+            `Issue deleting ${fileType} for report ${id}: ${(result as any).error}`,
+          );
         }
       });
 
       if (penyambunganRecords.length > 0) {
-        const tasks: { path: string | null; label: string; penyambunganId: string }[] = [];
+        const tasks: {
+          path: string | null;
+          label: string;
+          penyambunganId: string;
+        }[] = [];
         for (const rec of penyambunganRecords) {
           tasks.push(
-            { path: rec.foto_pemasangan_meter, label: 'penyambungan.foto_pemasangan_meter', penyambunganId: rec.id },
-            { path: rec.foto_rumah_pelanggan, label: 'penyambungan.foto_rumah_pelanggan', penyambunganId: rec.id },
-            { path: rec.foto_petugas, label: 'penyambungan.foto_petugas', penyambunganId: rec.id },
-            { path: rec.foto_ba_pemasangan, label: 'penyambungan.foto_ba_pemasangan', penyambunganId: rec.id },
+            {
+              path: rec.foto_pemasangan_meter,
+              label: 'penyambungan.foto_pemasangan_meter',
+              penyambunganId: rec.id,
+            },
+            {
+              path: rec.foto_rumah_pelanggan,
+              label: 'penyambungan.foto_rumah_pelanggan',
+              penyambunganId: rec.id,
+            },
+            {
+              path: rec.foto_petugas,
+              label: 'penyambungan.foto_petugas',
+              penyambunganId: rec.id,
+            },
+            {
+              path: rec.foto_ba_pemasangan,
+              label: 'penyambungan.foto_ba_pemasangan',
+              penyambunganId: rec.id,
+            },
           );
         }
 
         const deletionResults = await Promise.all(
-          tasks.map(t => t.path ? this.storageService.deleteFile(t.path) : Promise.resolve({ success: true }))
+          tasks.map((t) =>
+            t.path
+              ? this.storageService.deleteFile(t.path)
+              : Promise.resolve({ success: true }),
+          ),
         );
 
         deletionResults.forEach((res, i) => {
           if ((res as any).error) {
             const t = tasks[i];
-            this.logger.warn(`Issue deleting ${t.label} for penyambungan ${t.penyambunganId} (yantek ${id}): ${(res as any).error}`);
+            this.logger.warn(
+              `Issue deleting ${t.label} for penyambungan ${t.penyambunganId} (yantek ${id}): ${(res as any).error}`,
+            );
           }
         });
       }
@@ -379,21 +551,30 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       return {
         status: 200,
         message: 'Laporan berhasil dihapus',
-        data: { id: deletedReport.id }, 
+        data: { id: deletedReport.id },
       };
     } catch (error) {
-      this.logger.error(`Error during database deletion for report ${id}:`, error);
+      this.logger.error(
+        `Error during database deletion for report ${id}:`,
+        error,
+      );
       throw new InternalServerErrorException('Gagal menghapus laporan.');
     }
   }
 
-  async updateStatus(id: string, dto: UpdateReportStatusDto, userId?: string): Promise<any> {
+  async updateStatus(
+    id: string,
+    dto: UpdateReportStatusDto,
+    userId?: string,
+  ): Promise<any> {
     const report = await this.prisma.laporanYantek.findUnique({
       where: { id },
     });
 
     if (!report) {
-      throw new NotFoundException(`Laporan Yantek dengan ID ${id} tidak ditemukan.`);
+      throw new NotFoundException(
+        `Laporan Yantek dengan ID ${id} tidak ditemukan.`,
+      );
     }
 
     const previousStatus = report.status_laporan;
@@ -407,8 +588,12 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       };
     }
 
-    const shouldLogCompletion = newStatus === StatusLaporan.SELESAI && previousStatus !== StatusLaporan.SELESAI;
-    const shouldLogProcessing = newStatus === StatusLaporan.DIPROSES && previousStatus !== StatusLaporan.DIPROSES;
+    const shouldLogCompletion =
+      newStatus === StatusLaporan.SELESAI &&
+      previousStatus !== StatusLaporan.SELESAI;
+    const shouldLogProcessing =
+      newStatus === StatusLaporan.DIPROSES &&
+      previousStatus !== StatusLaporan.DIPROSES;
     const shouldLogGenericUpdate = !shouldLogCompletion && !shouldLogProcessing;
 
     try {
@@ -418,28 +603,44 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
       });
 
       // Log based on status transition
-      if (userId) { // Only log if user is known
+      if (userId) {
+        // Only log if user is known
         if (shouldLogCompletion) {
-          await this.activityLogsService.createLog({
-            activityType: ActivityType.REPORT_COMPLETED,
-            createdYantekReportId: id,
-            createdByUserId: userId,
-            message: `Laporan [${id}] status diubah menjadi SELESAI (dari ${previousStatus}).`,
-          }).catch(logError => { this.logger.error(`Failed log completion for ${id}:`, logError); });
+          await this.activityLogsService
+            .createLog({
+              activityType: ActivityType.REPORT_COMPLETED,
+              createdYantekReportId: id,
+              createdByUserId: userId,
+              message: `Laporan [${id}] status diubah menjadi SELESAI (dari ${previousStatus}).`,
+            })
+            .catch((logError) => {
+              this.logger.error(`Failed log completion for ${id}:`, logError);
+            });
         } else if (shouldLogProcessing) {
-          await this.activityLogsService.createLog({
-            activityType: ActivityType.REPORT_PROCESSED,
-            createdYantekReportId: id,
-            createdByUserId: userId,
-            message: `Laporan [${id}] status diubah menjadi DIPROSES (dari ${previousStatus}).`,
-          }).catch(logError => { this.logger.error(`Failed log processing for ${id}:`, logError); });
-        } else if (shouldLogGenericUpdate) { 
-          await this.activityLogsService.createLog({
-            activityType: ActivityType.REPORT_UPDATED, 
-            createdYantekReportId: id,
-            createdByUserId: userId,
-            message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
-          }).catch(logError => { this.logger.error(`Failed log status update for ${id}:`, logError); });
+          await this.activityLogsService
+            .createLog({
+              activityType: ActivityType.REPORT_PROCESSED,
+              createdYantekReportId: id,
+              createdByUserId: userId,
+              message: `Laporan [${id}] status diubah menjadi DIPROSES (dari ${previousStatus}).`,
+            })
+            .catch((logError) => {
+              this.logger.error(`Failed log processing for ${id}:`, logError);
+            });
+        } else if (shouldLogGenericUpdate) {
+          await this.activityLogsService
+            .createLog({
+              activityType: ActivityType.REPORT_UPDATED,
+              createdYantekReportId: id,
+              createdByUserId: userId,
+              message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
+            })
+            .catch((logError) => {
+              this.logger.error(
+                `Failed log status update for ${id}:`,
+                logError,
+              );
+            });
         }
       }
 
@@ -449,12 +650,18 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         data: updatedReport,
       };
     } catch (error) {
-      this.logger.error(`Error updating status for report ${id}:`, error); 
-      throw new InternalServerErrorException('Gagal memperbarui status laporan.');
+      this.logger.error(`Error updating status for report ${id}:`, error);
+      throw new InternalServerErrorException(
+        'Gagal memperbarui status laporan.',
+      );
     }
   }
 
-  async findHistory(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
+  async findHistory(
+    paginationQuery: PaginationQueryDto,
+    userId?: string,
+    userRole?: UserRole,
+  ) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
@@ -473,7 +680,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         },
         select: { createdYantekReportId: true },
       });
-      const allowedIds = userLogs.map(l => l.createdYantekReportId).filter(Boolean) as string[];
+      const allowedIds = userLogs
+        .map((l) => l.createdYantekReportId)
+        .filter(Boolean) as string[];
       if (allowedIds.length === 0) {
         return { data: [], meta: buildMeta(0, page, limit, 0) };
       }
@@ -506,7 +715,11 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     return { data, meta: buildMeta(totalItems, page, limit, data.length) };
   }
 
-  async findYantekHistoryForPetugas(paginationQuery: PaginationQueryDto, userFullname: string) { // Changed userId to userFullname
+  async findYantekHistoryForPetugas(
+    paginationQuery: PaginationQueryDto,
+    userFullname: string,
+  ) {
+    // Changed userId to userFullname
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
@@ -522,7 +735,8 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         orderBy: {
           createdAt: 'desc',
         },
-        include: { // Include details similar to findHistory for consistency
+        include: {
+          // Include details similar to findHistory for consistency
           laporan_penyambungan: {
             select: {
               createdAt: true,
@@ -552,7 +766,11 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     };
   }
 
-  async findPenyambunganReports(paginationQuery: PaginationQueryDto, userId?: string, userRole?: UserRole) {
+  async findPenyambunganReports(
+    paginationQuery: PaginationQueryDto,
+    userId?: string,
+    userRole?: UserRole,
+  ) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
@@ -565,7 +783,9 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         },
         select: { createdPenyambunganReportId: true },
       });
-      const allowedIds = userLogs.map(l => l.createdPenyambunganReportId).filter(Boolean) as string[];
+      const allowedIds = userLogs
+        .map((l) => l.createdPenyambunganReportId)
+        .filter(Boolean) as string[];
       if (allowedIds.length === 0) {
         return { data: [], meta: buildMeta(0, page, limit, 0) };
       }
@@ -596,7 +816,10 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     return { data, meta: buildMeta(totalItems, page, limit, data.length) };
   }
 
-  async findPenyambunganHistoryForPetugas(paginationQuery: PaginationQueryDto, userId: string) {
+  async findPenyambunganHistoryForPetugas(
+    paginationQuery: PaginationQueryDto,
+    userId: string,
+  ) {
     const { page = 1, limit = 10 } = paginationQuery;
     const skip = (page - 1) * limit;
 
@@ -613,8 +836,8 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
     });
 
     const completedPenyambunganIds = userCompletedLogs
-      .map(log => log.createdPenyambunganReportId)
-      .filter(id => id !== null) as string[];
+      .map((log) => log.createdPenyambunganReportId)
+      .filter((id) => id !== null) as string[];
 
     if (completedPenyambunganIds.length === 0) {
       return {
@@ -640,7 +863,8 @@ async FindActiveReport(paginationQuery: PaginationQueryDto, userId?: string, use
         orderBy: {
           createdAt: 'desc',
         },
-        include: { // Include details of the related LaporanYantek
+        include: {
+          // Include details of the related LaporanYantek
           laporan_yante: {
             select: {
               ID_Pelanggan: true,

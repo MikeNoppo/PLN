@@ -3,7 +3,9 @@ import { BadRequestException } from '@nestjs/common';
 export class FileValidator {
   private static readonly VALID_IMAGE_TYPE = /^image\/(jpeg|jpg|png)$/;
 
-  static validateImageFiles(files: { name: string; file: Express.Multer.File }[]): void {
+  static validateImageFiles(
+    files: { name: string; file: Express.Multer.File }[],
+  ): void {
     for (const { name, file } of files) {
       if (!this.VALID_IMAGE_TYPE.test(file.mimetype)) {
         throw new BadRequestException(
@@ -13,7 +15,10 @@ export class FileValidator {
     }
   }
 
-  static validateRequiredFiles(files: Record<string, Express.Multer.File[]>, requiredFields: string[]): void {
+  static validateRequiredFiles(
+    files: Record<string, Express.Multer.File[]>,
+    requiredFields: string[],
+  ): void {
     for (const field of requiredFields) {
       if (!files[field]?.[0]) {
         throw new BadRequestException('Semua foto wajib diunggah');

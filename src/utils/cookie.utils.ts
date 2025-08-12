@@ -7,7 +7,10 @@ import { ConfigService } from '@nestjs/config';
  * @param defaultMs The default value in milliseconds if duration is invalid or missing.
  * @returns The duration in milliseconds.
  */
-export const getDurationInMs = (duration: string | undefined | null, defaultMs: number): number => {
+export const getDurationInMs = (
+  duration: string | undefined | null,
+  defaultMs: number,
+): number => {
   if (!duration) return defaultMs;
   const value = parseInt(duration);
   if (isNaN(value)) return defaultMs; // Handle cases like "invalid"
@@ -20,7 +23,6 @@ export const getDurationInMs = (duration: string | undefined | null, defaultMs: 
   // If no unit, assume milliseconds or return default
   return value; // Or return defaultMs if unitless numbers are not desired
 };
-
 
 export interface CookieConfig {
   atExpiresIn: string;

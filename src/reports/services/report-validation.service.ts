@@ -9,7 +9,12 @@ export class ReportValidationService {
     foto_petugas?: Express.Multer.File[];
     foto_ba_gangguan?: Express.Multer.File[];
   }) {
-    FileValidator.validateRequiredFiles(files, ['foto_rumah', 'foto_meter_rusak', 'foto_petugas', 'foto_ba_gangguan']);
+    FileValidator.validateRequiredFiles(files, [
+      'foto_rumah',
+      'foto_meter_rusak',
+      'foto_petugas',
+      'foto_ba_gangguan',
+    ]);
 
     const allFiles = [
       { name: 'foto rumah', file: files.foto_rumah![0] },

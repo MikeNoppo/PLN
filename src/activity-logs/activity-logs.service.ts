@@ -21,15 +21,16 @@ export class ActivityLogsService {
         createdByUserId: data.createdByUserId,
         createdYantekReportId: data.createdYantekReportId,
         createdPenyambunganReportId: data.createdPenyambunganReportId,
-        deletedReportId: data.deletedReportId, 
+        deletedReportId: data.deletedReportId,
       },
     });
   }
 
   // Method to get recent activities will be added later
 
-  // --- Get Recent Activities --- 
-  async findRecent(limit: number = 10) { // Default limit to 10
+  // --- Get Recent Activities ---
+  async findRecent(limit: number = 10) {
+    // Default limit to 10
     const relevantTypes = [
       ActivityType.REPORT_CREATED,
       ActivityType.REPORT_COMPLETED,
@@ -47,7 +48,6 @@ export class ActivityLogsService {
         timestamp: 'desc', // Newest first
       },
       take: limit, // Apply the limit
-
     });
 
     return logs;

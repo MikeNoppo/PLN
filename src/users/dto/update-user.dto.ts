@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEnum, MinLength, ValidateIf } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class UpdateUserDto {
@@ -6,7 +12,7 @@ export class UpdateUserDto {
   @IsOptional()
   name?: string;
 
-  @ValidateIf(o => o.password !== null && o.password !== '')
+  @ValidateIf((o) => o.password !== null && o.password !== '')
   @IsString()
   @MinLength(6)
   @IsOptional()

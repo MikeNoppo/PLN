@@ -1,7 +1,16 @@
-import { Controller, Post, Body, UseGuards, Get, Res, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Res,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RefreshTokenDto } from './dto/auth.dto'; 
+import { LoginDto, RegisterDto, RefreshTokenDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { User } from './decorators/user.decorator';
@@ -24,61 +33,69 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const loginResult = await this.authService.login(loginDto);
 
     const cookieConfig = getCookieConfig(this.authService['configService']);
-    
+
     setAuthCookies(
       response,
       loginResult?.data?.token?.access_token,
       loginResult?.data?.token?.refresh_token,
-      cookieConfig
+      cookieConfig,
     );
 
     return {
-      status: HttpStatus.OK, 
-      message: "Login berhasil",
+      status: HttpStatus.OK,
+      message: 'Login berhasil',
       data: {
         user_id: loginResult.data.user_id,
         fullname: loginResult.data.fullname,
         role: loginResult.data.role,
-      }
+      },
     };
   }
 
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
-  async refreshTokens(@User('refreshToken') refreshToken: string, @Res({ passthrough: true }) response: Response) {
-    
+  async refreshTokens(
+    @User('refreshToken') refreshToken: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const refreshResult = await this.authService.refreshToken(refreshToken);
 
     const cookieConfig = getCookieConfig(this.authService['configService']);
-    
+
     setAuthCookies(
       response,
       refreshResult?.data?.access_token,
       refreshResult?.data?.refresh_token,
-      cookieConfig
+      cookieConfig,
     );
 
     return {
       status: HttpStatus.OK,
-      message: "Token berhasil diperbarui",
-      data: null
+      message: 'Token berhasil diperbarui',
+      data: null,
     };
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@User() user: { userId: string; username: string }, @Res({ passthrough: true }) response: Response) {
+  async logout(
+    @User() user: { userId: string; username: string },
+    @Res({ passthrough: true }) response: Response,
+  ) {
     await this.authService.logout(user.userId);
     response.clearCookie('access_token', { path: '/' });
-    response.clearCookie('refresh_token', { path: '/' }); 
+    response.clearCookie('refresh_token', { path: '/' });
     return {
-        status: HttpStatus.OK,
-        message: "Logout berhasil",
-        data: null
+      status: HttpStatus.OK,
+      message: 'Logout berhasil',
+      data: null,
     };
   }
 
@@ -88,7 +105,7 @@ export class AuthController {
     return {
       userId: user.userId,
       username: user.username,
-      role: user.role
+      role: user.role,
     };
   }
 
@@ -99,14 +116,14 @@ export class AuthController {
     const loginResult = await this.authService.login(loginDto);
     return {
       status: HttpStatus.OK,
-      message: "Login berhasil",
+      message: 'Login berhasil',
       data: {
         user_id: loginResult.data.user_id,
         fullname: loginResult.data.fullname,
         role: loginResult.data.role,
         access_token: loginResult.data.token.access_token,
         refresh_token: loginResult.data.token.refresh_token,
-      }
+      },
     };
   }
 
@@ -119,11 +136,11 @@ export class AuthController {
     const refreshResult = await this.authService.refreshToken(refreshToken);
     return {
       status: HttpStatus.OK,
-      message: "Token berhasil diperbarui",
+      message: 'Token berhasil diperbarui',
       data: {
         access_token: refreshResult.data.access_token,
         refresh_token: refreshResult.data.refresh_token,
-      }
+      },
     };
   }
 
@@ -132,9 +149,9 @@ export class AuthController {
   async mobileLogout(@User() user: { userId: string; username: string }) {
     await this.authService.logout(user.userId);
     return {
-        status: HttpStatus.OK,
-        message: "Logout berhasil",
-        data: null
+      status: HttpStatus.OK,
+      message: 'Logout berhasil',
+      data: null,
     };
   }
 }

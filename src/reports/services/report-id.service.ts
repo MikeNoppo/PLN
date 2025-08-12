@@ -25,7 +25,8 @@ export class ReportIdService {
       ORDER BY id DESC
       LIMIT 1`;
 
-    const lastReport = await prismaClient.$queryRaw<Array<{ id: string }>>(query);
+    const lastReport =
+      await prismaClient.$queryRaw<Array<{ id: string }>>(query);
 
     let sequence = 1;
     if (lastReport.length > 0) {

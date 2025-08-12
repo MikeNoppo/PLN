@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GetUsersQueryDto } from './dto/users.dto';
 import { UserRole } from '@prisma/client';
@@ -11,17 +15,19 @@ export class UsersService {
 
   async getUsers(query: GetUsersQueryDto) {
     const { role, search } = query;
-    
+
     const users = await this.prisma.user.findMany({
       where: {
         AND: [
           role ? { role } : {},
-          search ? {
-            OR: [
-              { username: { contains: search, mode: 'insensitive' } },
-              { name: { contains: search, mode: 'insensitive' } },
-            ],
-          } : {},
+          search
+            ? {
+                OR: [
+                  { username: { contains: search, mode: 'insensitive' } },
+                  { name: { contains: search, mode: 'insensitive' } },
+                ],
+              }
+            : {},
         ],
       },
       select: {
@@ -36,8 +42,8 @@ export class UsersService {
 
     return {
       status: 200,
-      message: "Berhasil mengambil data users",
-      data: users
+      message: 'Berhasil mengambil data users',
+      data: users,
     };
   }
 
@@ -60,8 +66,8 @@ export class UsersService {
 
     return {
       status: 200,
-      message: "Berhasil mengambil data user",
-      data: user
+      message: 'Berhasil mengambil data user',
+      data: user,
     };
   }
 
@@ -74,11 +80,11 @@ export class UsersService {
     // Get user details
     const userToDelete = await this.prisma.user.findUnique({
       where: { id },
-      select: { 
+      select: {
         id: true,
         role: true,
         name: true,
-        username: true
+        username: true,
       },
     });
 
@@ -99,7 +105,7 @@ export class UsersService {
 
     // Delete all tokens for this user to force logout
     await this.prisma.token.deleteMany({
-      where: { userId: id }
+      where: { userId: id },
     });
 
     // Finally delete the user
@@ -109,12 +115,16 @@ export class UsersService {
 
     return {
       status: 200,
-      message: "Berhasil menghapus user",
-      data: null
+      message: 'Berhasil menghapus user',
+      data: null,
     };
   }
 
-  async updateUser(id: string, updateUserDto: UpdateUserDto, currentUserId: string) {
+  async updateUser(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    currentUserId: string,
+  ) {
     // Prevent updating own role
     if (id === currentUserId && updateUserDto.role) {
       throw new BadRequestException('Cannot change your own role');
@@ -123,7 +133,7 @@ export class UsersService {
     // Get user details first
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { 
+      select: {
         id: true,
         role: true,
       },
@@ -146,7 +156,7 @@ export class UsersService {
 
     // Prepare update data
     const updateData: any = { ...updateUserDto };
-    
+
     // If password is provided, hash it
     if (updateUserDto.password) {
       updateData.password = await bcrypt.hash(updateUserDto.password, 10);
@@ -168,8 +178,8 @@ export class UsersService {
 
     return {
       status: 200,
-      message: "Berhasil mengubah data user",
-      data: updatedUser
+      message: 'Berhasil mengubah data user',
+      data: updatedUser,
     };
   }
 }

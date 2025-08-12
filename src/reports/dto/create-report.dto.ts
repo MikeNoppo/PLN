@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsEnum, Matches, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsEnum,
+  Matches,
+  IsOptional,
+} from 'class-validator';
 import { TipeMeter } from '@prisma/client';
 
 export class CreateReportDto {
@@ -13,7 +19,7 @@ export class CreateReportDto {
 
   @IsString()
   @Matches(/^(\+62|62|0)8[1-9][0-9]{6,10}$/, {
-    message: 'Nomor telepon tidak valid. Gunakan format nomor Indonesia'
+    message: 'Nomor telepon tidak valid. Gunakan format nomor Indonesia',
   })
   no_telepon_pelanggan: string;
 

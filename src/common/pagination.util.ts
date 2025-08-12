@@ -6,7 +6,11 @@ export interface PaginationMeta {
   currentPage: number;
 }
 
-export function paginate<T>(allData: T[], page: number = 1, limit: number = 10) {
+export function paginate<T>(
+  allData: T[],
+  page: number = 1,
+  limit: number = 10,
+) {
   const skip = (page - 1) * limit;
   const paginated = allData.slice(skip, skip + limit);
   const totalItems = allData.length;
@@ -21,10 +25,17 @@ export function paginate<T>(allData: T[], page: number = 1, limit: number = 10) 
 }
 
 // Helper for DB-paginated responses to standardize meta structure
-export function buildMeta(totalItems: number, page: number = 1, limit: number = 10, itemCount?: number): PaginationMeta {
+export function buildMeta(
+  totalItems: number,
+  page: number = 1,
+  limit: number = 10,
+  itemCount?: number,
+): PaginationMeta {
   return {
     totalItems,
-    itemCount: itemCount ?? Math.min(limit, Math.max(0, totalItems - (page - 1) * limit)),
+    itemCount:
+      itemCount ??
+      Math.min(limit, Math.max(0, totalItems - (page - 1) * limit)),
     itemsPerPage: limit,
     totalPages: Math.ceil(totalItems / limit),
     currentPage: page,

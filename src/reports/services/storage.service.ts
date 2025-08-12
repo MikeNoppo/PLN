@@ -12,9 +12,9 @@ export class StorageService {
     meter: 'meter-photos',
     document: 'documents',
     petugas: 'petugas-photos',
-    penyambungan_meter: 'penyambungan-meter', 
-    penyambungan_rumah: 'penyambungan-rumah', 
-    penyambungan_ba: 'penyambungan-ba'        
+    penyambungan_meter: 'penyambungan-meter',
+    penyambungan_rumah: 'penyambungan-rumah',
+    penyambungan_ba: 'penyambungan-ba',
   };
 
   constructor() {
@@ -24,7 +24,7 @@ export class StorageService {
   private async initializeDirectories(): Promise<void> {
     try {
       await fs.mkdir(this.uploadDir, { recursive: true });
-      
+
       for (const dir of Object.values(this.subDirs)) {
         await fs.mkdir(path.join(this.uploadDir, dir), { recursive: true });
       }
@@ -36,8 +36,15 @@ export class StorageService {
 
   async saveFile(
     file: Buffer,
-    type: 'house' | 'meter' | 'document' | 'petugas' | 'penyambungan_meter' | 'penyambungan_rumah' | 'penyambungan_ba',
-    originalName: string
+    type:
+      | 'house'
+      | 'meter'
+      | 'document'
+      | 'petugas'
+      | 'penyambungan_meter'
+      | 'penyambungan_rumah'
+      | 'penyambungan_ba',
+    originalName: string,
   ): Promise<string> {
     try {
       const ext = path.extname(originalName);
@@ -54,22 +61,24 @@ export class StorageService {
     }
   }
 
-  async deleteFile(filePath: string): Promise<{ success: boolean; error?: string }> {
+  async deleteFile(
+    filePath: string,
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       if (!filePath) {
         return { success: true };
       }
 
       const fullPath = path.join(this.uploadDir, filePath);
-      
+
       // Check if file exists before attempting to delete
       try {
         await fs.access(fullPath);
       } catch (error) {
         this.logger.warn(`File not found: ${fullPath}`);
-        return { 
-          success: true, 
-          error: `File not found: ${filePath}` 
+        return {
+          success: true,
+          error: `File not found: ${filePath}`,
         };
       }
 
@@ -77,9 +86,9 @@ export class StorageService {
       return { success: true };
     } catch (error) {
       this.logger.error(`Error deleting file ${filePath}:`, error);
-      return { 
-        success: false, 
-        error: error.message 
+      return {
+        success: false,
+        error: error.message,
       };
     }
   }

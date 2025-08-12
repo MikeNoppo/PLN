@@ -3,9 +3,9 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Request } from 'express'; 
+import { Request } from 'express';
 
-interface JwtPayload{
+interface JwtPayload {
   sub: string;
   username: string;
   role: string;
@@ -30,28 +30,30 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(req: Request ,payload: JwtPayload){
+  async validate(req: Request, payload: JwtPayload) {
     // find user
     const user = await this.prisma.user.findUnique({
-      where : { id: payload.sub },
-      select : {
+      where: { id: payload.sub },
+      select: {
         id: true,
         username: true,
-        name: true, 
+        name: true,
         role: true,
       },
     });
 
-    if (!user){
-      this.logger.warn(`JWT validation failed for user ${payload.username} not found`);
+    if (!user) {
+      this.logger.warn(
+        `JWT validation failed for user ${payload.username} not found`,
+      );
       throw new UnauthorizedException('invalid token or user not found');
     }
 
-    return{
-      id : user.id,
-      username : user.username,
+    return {
+      id: user.id,
+      username: user.username,
       name: user.name,
-      role : user.role,
+      role: user.role,
     };
   }
 }

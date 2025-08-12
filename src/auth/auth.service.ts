@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
@@ -15,7 +20,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) { }
+  ) {}
 
   async register(registerDto: RegisterDto) {
     const { name, username, password, role } = registerDto;
@@ -50,12 +55,12 @@ export class AuthService {
     // Return the formatted response
     return {
       status: 201,
-      message: "Berhasil Membuat Akun",
+      message: 'Berhasil Membuat Akun',
       data: {
         user_id: user.id,
         username: user.username,
         role: user.role,
-      }
+      },
     };
   }
 
@@ -89,20 +94,19 @@ export class AuthService {
     // Return the formatted response
     return {
       status: 200,
-      message: "Login berhasil",
+      message: 'Login berhasil',
       data: {
         user_id: user.id,
         fullname: user.name,
         role: user.role,
         token: {
           access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token
-        }
-      }
+          refresh_token: tokens.refresh_token,
+        },
+      },
     };
   }
   async refreshToken(refreshToken: string) {
-    
     if (!refreshToken) {
       this.logger.warn('Refresh token not provided in request');
       throw new UnauthorizedException('Refresh token not found in request');
@@ -125,8 +129,12 @@ export class AuthService {
       });
 
       if (!userTokens || userTokens.length === 0) {
-        this.logger.warn(`No valid refresh tokens found for user ${payload.sub}`);
-        throw new UnauthorizedException('No valid refresh tokens found for user.');
+        this.logger.warn(
+          `No valid refresh tokens found for user ${payload.sub}`,
+        );
+        throw new UnauthorizedException(
+          'No valid refresh tokens found for user.',
+        );
       }
 
       let matchedTokenRecord = null;
@@ -138,7 +146,9 @@ export class AuthService {
       }
 
       if (!matchedTokenRecord) {
-        this.logger.warn(`Refresh token does not match any stored tokens for user ${payload.sub}`);
+        this.logger.warn(
+          `Refresh token does not match any stored tokens for user ${payload.sub}`,
+        );
       }
 
       // Fetch user info before transaction
@@ -152,7 +162,9 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User associated with token not found.');
+        throw new UnauthorizedException(
+          'User associated with token not found.',
+        );
       }
 
       // --- Token Rotation (atomic) ---
@@ -161,7 +173,7 @@ export class AuthService {
         {
           secret: this.configService.get('REFRESH_TOKEN_SECRET'),
           expiresIn: this.configService.get('RT_EXPIRES_IN'),
-        }
+        },
       );
       const rtExpiresIn = this.configService.get('RT_EXPIRES_IN') || '7d';
       const daysToAdd = parseInt(rtExpiresIn.replace('d', ''), 10) || 7;
@@ -172,14 +184,14 @@ export class AuthService {
         const tokenStillExists = await tx.token.findUnique({
           where: { id: matchedTokenRecord.id },
         });
-        
+
         // Only attempt to delete if the token still exists
         if (tokenStillExists) {
           await tx.token.delete({
             where: { id: matchedTokenRecord.id },
           });
         }
-        
+
         // Create new token regardless
         await tx.token.create({
           data: {
@@ -190,15 +202,19 @@ export class AuthService {
         });
       });
 
-      const newTokens = await this.generateTokens(user.id, user.username, user.role);
+      const newTokens = await this.generateTokens(
+        user.id,
+        user.username,
+        user.role,
+      );
 
       return {
         status: 200,
-        message: "Token berhasil diperbarui",
+        message: 'Token berhasil diperbarui',
         data: {
           access_token: newTokens.access_token,
           refresh_token: newTokens.refresh_token,
-        }
+        },
       };
     } catch (error) {
       // Log the specific error for better debugging
@@ -218,12 +234,16 @@ export class AuthService {
 
     return {
       status: 200,
-      message: "Logout berhasil",
-      data: null
+      message: 'Logout berhasil',
+      data: null,
     };
   }
 
-  private async generateTokens(userId: string, username: string, role: UserRole) {
+  private async generateTokens(
+    userId: string,
+    username: string,
+    role: UserRole,
+  ) {
     const accessToken = this.generateAccessToken(userId, username, role);
 
     const refreshToken = this.jwtService.sign(
@@ -260,13 +280,17 @@ export class AuthService {
     };
   }
 
-  private generateAccessToken(userId: string, username: string, role: UserRole) {
+  private generateAccessToken(
+    userId: string,
+    username: string,
+    role: UserRole,
+  ) {
     return this.jwtService.sign(
       { sub: userId, username, role },
       {
         secret: this.configService.get('JWT_SECRET'),
         expiresIn: this.configService.get('AT_EXPIRES_IN'),
-      }
+      },
     );
   }
 }

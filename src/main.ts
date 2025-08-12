@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
-import * as cookieParser from 'cookie-parser'; 
+import * as cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -24,16 +24,16 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), { 
+  app.useStaticAssets(join(__dirname, '..', '..', 'uploads'), {
     prefix: '/uploads/',
     setHeaders: (res) => {
       res.set('Access-Control-Allow-Origin', process.env.CORS_ORIGIN);
       res.set('Access-Control-Allow-Methods', 'GET');
-    }, 
+    },
   });
-  
+
   app.use(helmet());
-  app.use(cookieParser()); 
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({

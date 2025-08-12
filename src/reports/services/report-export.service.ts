@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { ExportFilterDto } from '../dto/export-filter.dto';
@@ -37,13 +41,16 @@ export class ReportExportService {
     if (tipe_meter) {
       // Ensure tipe_meter is a valid enum value if necessary
       if (!Object.values(TipeMeter).includes(tipe_meter)) {
-          throw new NotFoundException(`Tipe meter tidak valid: ${tipe_meter}`);
+        throw new NotFoundException(`Tipe meter tidak valid: ${tipe_meter}`);
       }
       whereClause.tipe_meter = tipe_meter;
     }
     if (petugas_yantek_id) {
       // Assuming nama_petugas is stored directly in LaporanYantek based on schema
-      whereClause.nama_petugas = { contains: petugas_yantek_id, mode: 'insensitive' };
+      whereClause.nama_petugas = {
+        contains: petugas_yantek_id,
+        mode: 'insensitive',
+      };
     }
 
     if (year) {
@@ -56,11 +63,12 @@ export class ReportExportService {
         lte: endDate,
       };
     } else if (month) {
-        // Handle month filter without year? Might need clarification or ignore.
-        // For now, assuming month filter only works with year filter.
-        console.warn("Month filter provided without year filter, ignoring month filter.");
+      // Handle month filter without year? Might need clarification or ignore.
+      // For now, assuming month filter only works with year filter.
+      console.warn(
+        'Month filter provided without year filter, ignoring month filter.',
+      );
     }
-
 
     // 2. Fetch Data
     const reports = await this.prisma.laporanYantek.findMany({
@@ -83,7 +91,9 @@ export class ReportExportService {
     });
 
     if (reports.length === 0) {
-      throw new NotFoundException('Tidak ada data laporan yang ditemukan sesuai filter.');
+      throw new NotFoundException(
+        'Tidak ada data laporan yang ditemukan sesuai filter.',
+      );
     }
 
     // 3. Generate Excel
@@ -92,8 +102,8 @@ export class ReportExportService {
       const worksheet = workbook.addWorksheet('Laporan PLN');
 
       // --- Template (Optional - Basic Title) ---
-  // Expand merged title range to cover all columns (updated after adding Tikor column)
-  worksheet.mergeCells('A1:T1');
+      // Expand merged title range to cover all columns (updated after adding Tikor column)
+      worksheet.mergeCells('A1:T1');
       worksheet.getCell('A1').value = 'Laporan Yantek dan Penyambungan';
       worksheet.getCell('A1').font = { size: 16, bold: true };
       worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -101,11 +111,26 @@ export class ReportExportService {
 
       // --- Header Row ---
       const headerRow = worksheet.addRow([
-        'No', 'ID Laporan', 'IDPEL', 'Nomor Meter', 'Tipe Meter', 'Tgl Lap. Yantek', 'Tgl Lap. Penyambungan',
-        'Petugas Yantek', 'Petugas Penyambungan', 'Foto Rumah', 'Foto Meter Rusak', 'Foto Petugas Yantek',
-        'Foto BA Gangguan', 'Foto Pasang Meter', 'Foto Rumah Pelanggan', 'Foto Petugas Penyambungan', 'Foto BA Pasang',
-        'Status Laporan', 'Keterangan', // Added Keterangan
-        'Tikor' // Added Tikor (titik_koordinat)
+        'No',
+        'ID Laporan',
+        'IDPEL',
+        'Nomor Meter',
+        'Tipe Meter',
+        'Tgl Lap. Yantek',
+        'Tgl Lap. Penyambungan',
+        'Petugas Yantek',
+        'Petugas Penyambungan',
+        'Foto Rumah',
+        'Foto Meter Rusak',
+        'Foto Petugas Yantek',
+        'Foto BA Gangguan',
+        'Foto Pasang Meter',
+        'Foto Rumah Pelanggan',
+        'Foto Petugas Penyambungan',
+        'Foto BA Pasang',
+        'Status Laporan',
+        'Keterangan', // Added Keterangan
+        'Tikor', // Added Tikor (titik_koordinat)
       ]);
 
       headerRow.eachCell((cell) => {
@@ -116,9 +141,16 @@ export class ReportExportService {
           fgColor: { argb: 'FFD3D3D3' }, // Light grey
         };
         cell.border = {
-          top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
         };
-        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+        };
       });
 
       // --- Data Rows ---
@@ -158,15 +190,15 @@ export class ReportExportService {
         const penyambungan = report.laporan_penyambungan;
 
         const formatDate = (date: Date | null | undefined) => {
-            if (!date) return '-';
-            // Simple YYYY-MM-DD format
-            try {
-                return date.toISOString().split('T')[0];
-            } catch (e) {
-                console.error("Error formatting date:", date, e);
-                return 'Invalid Date';
-            }
-        }
+          if (!date) return '-';
+          // Simple YYYY-MM-DD format
+          try {
+            return date.toISOString().split('T')[0];
+          } catch (e) {
+            console.error('Error formatting date:', date, e);
+            return 'Invalid Date';
+          }
+        };
 
         // Add row with placeholders for images
         const row = worksheet.addRow([
@@ -193,10 +225,17 @@ export class ReportExportService {
         ]);
 
         row.eachCell((cell) => {
-            cell.border = {
-                top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
-            };
-            cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true }; // Enable wrapText for data cells
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+          cell.alignment = {
+            vertical: 'top',
+            horizontal: 'left',
+            wrapText: true,
+          }; // Enable wrapText for data cells
         });
         // Specific alignment for No column
         row.getCell(1).alignment = { vertical: 'top', horizontal: 'center' };
@@ -204,7 +243,7 @@ export class ReportExportService {
         row.getCell(18).alignment = { vertical: 'top', horizontal: 'center' };
 
         // Set row height agar gambar muat thumbnail
-        worksheet.getRow(excelRow).height = 100; 
+        worksheet.getRow(excelRow).height = 100;
 
         // Embed images (J=10, K=11, L=12, M=13, N=14, O=15, P=16, Q=17)
         const imageFields = [
@@ -222,7 +261,10 @@ export class ReportExportService {
           if (img) {
             try {
               // ExcelJS typings expect a Node Buffer; cast to any to bridge type mismatch across versions
-              const imageId = workbook.addImage({ buffer: img.buffer as any, extension: img.extension });
+              const imageId = workbook.addImage({
+                buffer: img.buffer as any,
+                extension: img.extension,
+              });
               const colIdx = 9 + i;
               const rowIdx = excelRow - 1;
               worksheet.addImage(imageId, {
@@ -230,14 +272,23 @@ export class ReportExportService {
                 ext: { width: 100, height: 100 },
                 editAs: 'oneCell',
               });
-              row.getCell(10 + i).alignment = { vertical: 'middle', horizontal: 'center' };
+              row.getCell(10 + i).alignment = {
+                vertical: 'middle',
+                horizontal: 'center',
+              };
             } catch (err) {
               row.getCell(10 + i).value = '-';
-              row.getCell(10 + i).alignment = { vertical: 'middle', horizontal: 'center' };
+              row.getCell(10 + i).alignment = {
+                vertical: 'middle',
+                horizontal: 'center',
+              };
             }
           } else {
             row.getCell(10 + i).value = '-';
-            row.getCell(10 + i).alignment = { vertical: 'middle', horizontal: 'center' };
+            row.getCell(10 + i).alignment = {
+              vertical: 'middle',
+              horizontal: 'center',
+            };
           }
         });
         excelRow++;
@@ -267,11 +318,12 @@ export class ReportExportService {
         { key: 'tikor', width: 25 }, // Added Tikor
       ];
 
-  // 4. Generate Buffer (normalize to Node Buffer across environments)
-  const data: unknown = await workbook.xlsx.writeBuffer();
-  const nodeBuffer = Buffer.isBuffer(data) ? (data as Buffer) : Buffer.from(data as ArrayBuffer);
-  return nodeBuffer;
-
+      // 4. Generate Buffer (normalize to Node Buffer across environments)
+      const data: unknown = await workbook.xlsx.writeBuffer();
+      const nodeBuffer = Buffer.isBuffer(data)
+        ? (data as Buffer)
+        : Buffer.from(data as ArrayBuffer);
+      return nodeBuffer;
     } catch (error) {
       console.error('Error generating Excel file:', error);
       throw new InternalServerErrorException('Gagal membuat file Excel.');

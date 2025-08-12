@@ -7,7 +7,10 @@ import { extractTokenFromRequest } from '../../utils/token.utils';
 import { Logger } from '@nestjs/common';
 
 @Injectable()
-export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'refresh-token') {
+export class RefreshTokenStrategy extends PassportStrategy(
+  Strategy,
+  'refresh-token',
+) {
   private readonly logger = new Logger(RefreshTokenStrategy.name);
 
   constructor(private configService: ConfigService) {
@@ -23,14 +26,16 @@ export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'refresh-to
     // Use the same token extractor for consistency
     const refreshToken = extractTokenFromRequest(req);
     if (!refreshToken) {
-      this.logger.error('Refresh token not found in request during strategy validation');
-      return null; 
+      this.logger.error(
+        'Refresh token not found in request during strategy validation',
+      );
+      return null;
     }
     return {
       userId: payload.sub,
       username: payload.username,
       role: payload.role,
-      refreshToken 
+      refreshToken,
     };
   }
 }

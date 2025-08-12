@@ -3,7 +3,7 @@ import { IsEnum, IsOptional } from 'class-validator';
 export enum PeriodType {
   WEEKLY = 'weekly',
   MONTHLY = 'monthly',
-  YEARLY = 'yearly'
+  YEARLY = 'yearly',
 }
 
 export class PerformanceFilterDto {
