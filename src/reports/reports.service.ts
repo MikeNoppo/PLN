@@ -16,9 +16,8 @@ import { ReportIdService } from './services/report-id.service';
 import { ReportFileService } from './services/report-file.service';
 import { UpdateReportStatusDto } from './dto/update-report-status.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { FileValidator } from '../utils/file-validator.util';
 import { ReportValidationService } from './services/report-validation.service';
-import { paginate, buildMeta } from '../common/pagination.util';
+import { buildMeta } from '../common/pagination.util';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 
 @Injectable()
@@ -113,7 +112,7 @@ export class ReportsService {
             activityType: ActivityType.REPORT_CREATED,
             createdYantekReportId: report.id, // Use the ID from the created report
             createdByUserId: userId,
-            message: `Laporan Yantek baru [${report.id}] dibuat.`,
+            message: `Laporan Yantek baru [${report.id}] dibuat oleh ${createReportDto.nama_petugas}.`,
           })
           .catch((logError) => {
             // Log error but don't fail the whole operation if logging fails
