@@ -736,7 +736,6 @@ export class ReportsService {
           createdAt: 'desc',
         },
         include: {
-          // Include details similar to findHistory for consistency
           laporan_penyambungan: {
             select: {
               createdAt: true,
@@ -754,7 +753,7 @@ export class ReportsService {
       }),
       this.prisma.laporanYantek.count({
         where: {
-          nama_petugas: userFullname, // Filter by nama_petugas for count
+          nama_petugas: userFullname,
           status_laporan: StatusLaporan.SELESAI,
         },
       }),
