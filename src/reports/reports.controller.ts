@@ -31,7 +31,7 @@ import { UserRole } from '@prisma/client';
 import { Response, Request } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { User } from '../auth/decorators/user.decorator'; 
+import { User } from '../auth/decorators/user.decorator';
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string; [key: string]: any };

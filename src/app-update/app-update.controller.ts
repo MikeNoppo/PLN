@@ -7,7 +7,8 @@ export class AppUpdateController {
     return {
       version_name: '1.0.7',
       version_code: 7,
-      release_notes: 'Memperbaiki masalah laporan dengan status DIPROSES tidak muncul di halaman petugas penyambungan',
+      release_notes:
+        'Memperbaiki masalah laporan dengan status DIPROSES tidak muncul di halaman petugas penyambungan',
       download_url: 'https://trackmel-pln.com/uploads/apps/app-release.apk',
     };
   }

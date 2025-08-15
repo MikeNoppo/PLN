@@ -33,6 +33,7 @@ export class ActivityLogsService {
     // Default limit to 10
     const relevantTypes = [
       ActivityType.REPORT_CREATED,
+      ActivityType.REPORT_UPDATED,
       ActivityType.REPORT_COMPLETED,
       ActivityType.REPORT_PROCESSED,
       ActivityType.REPORT_DELETED,

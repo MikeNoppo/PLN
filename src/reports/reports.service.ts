@@ -161,7 +161,6 @@ export class ReportsService {
     }
   }
 
-
   async createPenyambungan(
     createPenyambunganDto: CreatePenyambunganDto,
     files: {
@@ -590,9 +589,17 @@ export class ReportsService {
     trackChange('ID_Pelanggan', dto.ID_Pelanggan, report.ID_Pelanggan);
     trackChange('nomor_meter', dto.nomor_meter, report.nomor_meter);
     trackChange('tipe_meter', dto.tipe_meter, report.tipe_meter);
-    trackChange('stand_meter_cabut', dto.stand_meter_cabut, report.stand_meter_cabut);
+    trackChange(
+      'stand_meter_cabut',
+      dto.stand_meter_cabut,
+      report.stand_meter_cabut,
+    );
     trackChange('sisa_pulsa', dto.sisa_pulsa, report.sisa_pulsa);
-    trackChange('no_telepon_pelanggan', dto.no_telepon_pelanggan, report.no_telepon_pelanggan);
+    trackChange(
+      'no_telepon_pelanggan',
+      dto.no_telepon_pelanggan,
+      report.no_telepon_pelanggan,
+    );
     trackChange('nama_petugas', dto.nama_petugas, report.nama_petugas);
 
     if (changedFields.length === 0) {
