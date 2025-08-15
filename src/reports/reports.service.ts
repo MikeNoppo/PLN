@@ -161,7 +161,6 @@ export class ReportsService {
     }
   }
 
-  // moved: file processing handled by ReportFileService
 
   async createPenyambungan(
     createPenyambunganDto: CreatePenyambunganDto,
@@ -561,7 +560,7 @@ export class ReportsService {
     }
   }
 
-  async updateStatus(
+  async update(
     id: string,
     dto: UpdateReportStatusDto,
     userId?: string,
@@ -575,84 +574,65 @@ export class ReportsService {
         `Laporan Yantek dengan ID ${id} tidak ditemukan.`,
       );
     }
+    // Build dynamic payload
+    const data: any = {};
+    const changedFields: string[] = [];
 
-    const previousStatus = report.status_laporan;
-    const newStatus = dto.status_laporan;
+    const trackChange = (field: string, newVal: any, oldVal: any) => {
+      if (newVal !== undefined && newVal !== oldVal) {
+        data[field] = newVal;
+        changedFields.push(field);
+      }
+    };
 
-    if (previousStatus === newStatus) {
+    // Map incoming DTO fields to prisma model fields
+    trackChange('status_laporan', dto.status_laporan, report.status_laporan);
+    trackChange('ID_Pelanggan', dto.ID_Pelanggan, report.ID_Pelanggan);
+    trackChange('nomor_meter', dto.nomor_meter, report.nomor_meter);
+    trackChange('tipe_meter', dto.tipe_meter, report.tipe_meter);
+    trackChange('stand_meter_cabut', dto.stand_meter_cabut, report.stand_meter_cabut);
+    trackChange('sisa_pulsa', dto.sisa_pulsa, report.sisa_pulsa);
+    trackChange('no_telepon_pelanggan', dto.no_telepon_pelanggan, report.no_telepon_pelanggan);
+    trackChange('nama_petugas', dto.nama_petugas, report.nama_petugas);
+
+    if (changedFields.length === 0) {
       return {
-        status: 200, // OK, but no change
-        message: 'Status laporan tidak berubah.',
-        data: report, // Return the existing report data
+        status: 200,
+        message: 'Tidak ada perubahan pada laporan.',
+        data: report,
       };
     }
-
-    const shouldLogCompletion =
-      newStatus === StatusLaporan.SELESAI &&
-      previousStatus !== StatusLaporan.SELESAI;
-    const shouldLogProcessing =
-      newStatus === StatusLaporan.DIPROSES &&
-      previousStatus !== StatusLaporan.DIPROSES;
-    const shouldLogGenericUpdate = !shouldLogCompletion && !shouldLogProcessing;
 
     try {
       const updatedReport = await this.prisma.laporanYantek.update({
         where: { id },
-        data: { status_laporan: newStatus },
+        data,
       });
 
-      // Log based on status transition
       if (userId) {
-        // Only log if user is known
-        if (shouldLogCompletion) {
-          await this.activityLogsService
-            .createLog({
-              activityType: ActivityType.REPORT_COMPLETED,
-              createdYantekReportId: id,
-              createdByUserId: userId,
-              message: `Laporan [${id}] status diubah menjadi SELESAI (dari ${previousStatus}).`,
-            })
-            .catch((logError) => {
-              this.logger.error(`Failed log completion for ${id}:`, logError);
-            });
-        } else if (shouldLogProcessing) {
-          await this.activityLogsService
-            .createLog({
-              activityType: ActivityType.REPORT_PROCESSED,
-              createdYantekReportId: id,
-              createdByUserId: userId,
-              message: `Laporan [${id}] status diubah menjadi DIPROSES (dari ${previousStatus}).`,
-            })
-            .catch((logError) => {
-              this.logger.error(`Failed log processing for ${id}:`, logError);
-            });
-        } else if (shouldLogGenericUpdate) {
-          await this.activityLogsService
-            .createLog({
-              activityType: ActivityType.REPORT_UPDATED,
-              createdYantekReportId: id,
-              createdByUserId: userId,
-              message: `Laporan [${id}] status diubah dari ${previousStatus} menjadi ${newStatus}.`,
-            })
-            .catch((logError) => {
-              this.logger.error(
-                `Failed log status update for ${id}:`,
-                logError,
-              );
-            });
-        }
+        // Ambil nama user untuk pesan log
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true },
+        });
+        await this.activityLogsService
+          .createLog({
+            activityType: ActivityType.REPORT_UPDATED,
+            createdYantekReportId: id,
+            createdByUserId: userId,
+            message: `Laporan Dengan [${id}] di update oleh [${user?.name || 'Unknown User'}]`,
+          })
+          .catch((e) => this.logger.error('Failed unified update log', e));
       }
 
       return {
-        status: 200, // Use 200 OK for successful updates
-        message: 'Status laporan berhasil diperbarui',
+        status: 200,
+        message: 'Laporan berhasil diperbarui',
         data: updatedReport,
       };
     } catch (error) {
-      this.logger.error(`Error updating status for report ${id}:`, error);
-      throw new InternalServerErrorException(
-        'Gagal memperbarui status laporan.',
-      );
+      this.logger.error(`Error updating report ${id}:`, error);
+      throw new InternalServerErrorException('Gagal memperbarui laporan.');
     }
   }
 

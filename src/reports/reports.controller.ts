@@ -31,9 +31,8 @@ import { UserRole } from '@prisma/client';
 import { Response, Request } from 'express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { User } from '../auth/decorators/user.decorator'; // Added User decorator import
+import { User } from '../auth/decorators/user.decorator'; 
 
-// Define an interface for the expected user payload in the request
 interface AuthenticatedRequest extends Request {
   user?: { id: string; [key: string]: any };
 }
@@ -202,15 +201,15 @@ export class ReportsController {
   }
 
   // --- Update Status Endpoint ---
-  @Patch(':id/status')
+  @Patch(':id')
   @Roles(UserRole.ADMIN)
-  async updateStatus(
+  async update(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() updateReportStatusDto: UpdateReportStatusDto,
   ) {
     const userId = req.user?.id;
-    return this.reportsService.updateStatus(id, updateReportStatusDto, userId);
+    return this.reportsService.update(id, updateReportStatusDto, userId);
   }
 
   @Get('yantek-history/petugas')
